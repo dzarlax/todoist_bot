@@ -1,0 +1,16 @@
+{
+  "name": "todoist_bot",
+  "version": "1.0.0",
+  "description": "",
+  "main": "todoist_bot.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.7",
+    "node-telegram-bot-api": "^0.64.0"
+  }
+}
