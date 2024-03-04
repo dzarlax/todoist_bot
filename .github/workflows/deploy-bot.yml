@@ -1,0 +1,27 @@
+name: Deploy Bot
+
+# Запускается вручную или после успешного выполнения docker-publish
+on:
+  workflow_run:
+    workflows: ["Build and Push Docker image"]
+    types:
+      - completed
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Deployment start
+      run: echo "Deployment process is starting..."
+
+    - name: SSH and Deploy
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_KEY }}
+        script: |
+          docker stop todoist || true
+          docker rm todoist || true
+          docker pull dzarlax/todoist_bot:latest
+          docker run -d --restart always -e TELEGRAM_TOKEN=${{ secrets.TELEGRAM_TOKEN }} -e TODOIST_TOKEN=${{ secrets.TODOIST_TOKEN }} --name todoist dzarlax/todoist_bot 
