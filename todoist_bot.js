@@ -44,22 +44,31 @@ function handleMessage(msg) {
   const chatId = msg.chat.id;
   const text = msg.text;
 
-  // Определение ника отправителя
-  const senderName = msg.from.username ? `@${msg.from.username}` : `${msg.from.first_name} ${msg.from.last_name || ''}`.trim();
-  const textWithSender = `${senderName}: ${text}`; // Добавляем ник отправителя к каждому сообщению
+  // Определение ника отправителя или оригинального автора пересланного сообщения
+  let senderName;
+  if (msg.forward_from) {
+      senderName = msg.forward_from.username ? `@${msg.forward_from.username}` : `${msg.forward_from.first_name} ${msg.forward_from.last_name || ''}`.trim();
+  } else if (msg.forward_from_chat) {
+      senderName = msg.forward_from_chat.title; // Если сообщение переслано из группы/канала
+  } else {
+      senderName = msg.from.username ? `@${msg.from.username}` : `${msg.from.first_name} ${msg.from.last_name || ''}`.trim();
+  }
+
+  const messageWithSender = `${senderName}: ${text}`; // Формируем сообщение с указанием автора
 
   if (!messageBuffer.has(chatId)) {
       messageBuffer.set(chatId, {
-          messages: [textWithSender], // Сохраняем сообщение уже с ником отправителя
+          messages: [messageWithSender], // Сохраняем сообщение уже с указанием автора
           timer: setTimeout(() => sendTaskToTodoist(chatId), 5000) // Таймер на 5 секунд
       });
   } else {
       const buffer = messageBuffer.get(chatId);
       clearTimeout(buffer.timer);
-      buffer.messages.push(textWithSender); // Добавляем в буфер сообщение с ником
+      buffer.messages.push(messageWithSender); // Добавляем в буфер сообщение с указанием автора
       buffer.timer = setTimeout(() => sendTaskToTodoist(chatId), 5000);
   }
 }
+
 
 
 bot.on('message', (msg) => {
