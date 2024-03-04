@@ -26,7 +26,7 @@ function sendTaskToTodoist(chatId) {
     }
 
     // Отправка задачи в Todoist
-    axios.post('https://api.todoist.com/rest/v1/tasks', {
+    axios.post('https://api.todoist.com/rest/v2/tasks', {
         content: title + description,
     }, {
         headers: {
