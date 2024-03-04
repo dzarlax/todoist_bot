@@ -25,8 +25,12 @@ Telegram Todoist Bot — это автоматизированный бот дл
 - Установленный [Docker](https://www.docker.com/) (для запуска в контейнере)
 
 ### Установка и запуск
+<<<<<<< HEAD
 
     docker run -d --restart always -e TELEGRAM_TOKEN=ваш_токен_бота -e TODOIST_TOKEN=ваш_todoist_токен dzarlax/todoist_bot
+=======
+docker run -d --restart always -e TELEGRAM_TOKEN=ваш_токен_бота -e TODOIST_TOKEN=ваш_todoist_токен telegram-todoist-bot
+>>>>>>> 2ab11ef (Readme fix)
 
 ## Как использовать
 
