@@ -22,8 +22,8 @@ jobs:
         key: ${{ secrets.SSH_KEY }}
         script: |
           cd /root/todoist || true
-          ddocker stop todoist
+          docker stop todoist
           docker rm todoist
           docker-compose up -d 
-          
+
 
