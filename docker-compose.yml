@@ -1,0 +1,11 @@
+version: '3.8'
+services:
+  todoist_bot:
+    image: dzarlax/todoist_bot
+    container_name: todoist
+    environment:
+      PROJECT_USERS_PROJECTNAME1: "@user1,@user2"
+      PROJECT_USERS_PROJECTNAME2: "@user3,@user4"
+      TODOIST_TOKEN=
+      TELEGRAM_TOKEN=
+      TIMER=5

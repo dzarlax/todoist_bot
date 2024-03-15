@@ -21,7 +21,6 @@ jobs:
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_KEY }}
         script: |
-          docker stop todoist || true
-          docker rm todoist || true
-          docker pull dzarlax/todoist_bot:latest
-          docker run -d --restart always -e TELEGRAM_TOKEN=${{ secrets.TELEGRAM_TOKEN }} -e TODOIST_TOKEN=${{ secrets.TODOIST_TOKEN }} --name todoist dzarlax/todoist_bot 
+          docker-compose down || true
+          docker-compose up -d --pull always
+
