@@ -25,6 +25,8 @@ Object.keys(process.env).forEach(key => {
   }
 });
 
+console.log(projectToUsersMapping)
+
 // Функция для определения проекта по имени пользователя
 function findProjectNameForUser(username) {
   for (const [projectName, users] of Object.entries(projectToUsersMapping)) {
