@@ -24,6 +24,7 @@ jobs:
           cd /root/todoist || true
           docker stop todoist || true
           docker rm todoist || true
+          docker pull dzarlax/todoist_bot
           docker-compose up -d 
 
 
