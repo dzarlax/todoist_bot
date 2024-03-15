@@ -21,6 +21,7 @@ jobs:
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_KEY }}
         script: |
+          cd /root/todoist
           docker-compose down || true
           docker-compose up -d --pull always
 
