@@ -13,31 +13,32 @@ const bot = new TelegramBot(token, { polling: true });
 const messageBuffer = new Map(); // Буфер для хранения сообщений
 
 function sendTaskToTodoist(chatId) {
-  const buffer = messageBuffer.get(chatId);
-  if (!buffer || buffer.messages.length === 0) return;
-
-  const title = buffer.messages[0]; // Первое сообщение уже содержит ник отправителя
-  let description = buffer.messages.slice(1).join('\n'); // Остальные сообщения тоже содержат ники
-
-  // Отправка задачи в Todoist без изменений в 'title' и 'description'
-  axios.post('https://api.todoist.com/rest/v2/tasks', {
+    if (!messageBuffer.has(chatId)) return; // Если сообщений нет, ничего не делаем
+  
+    const buffer = messageBuffer.get(chatId);
+    if (buffer.messages.length === 0) return; // Если в буфере нет сообщений, ничего не делаем
+  
+    const title = buffer.messages[0];
+    let description = buffer.messages.slice(1).join('\n');
+  
+    axios.post('https://api.todoist.com/rest/v2/tasks', {
       content: title + (description ? `\n\nОписание:\n${description}` : ''),
-  }, {
+    }, {
       headers: {
           'Authorization': `Bearer ${todoistToken}`
       }
-  })
-  .then(response => {
-      bot.sendMessage(chatId, 'Задача успешно добавлена!');
-  })
-  .catch(error => {
-      console.error(error);
-      bot.sendMessage(chatId, 'Произошла ошибка при добавлении задачи.');
-  });
-
-  // Очистка буфера после отправки
-  messageBuffer.delete(chatId);
-}
+    })
+    .then(response => {
+        bot.sendMessage(chatId, 'Задача успешно добавлена!');
+    })
+    .catch(error => {
+        console.error(error);
+        bot.sendMessage(chatId, 'Произошла ошибка при добавлении задачи.');
+    });
+  
+    messageBuffer.delete(chatId); // Очистка буфера после отправки
+  }
+  
 
 
 function handleMessage(msg) {
