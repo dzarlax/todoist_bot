@@ -23,5 +23,5 @@ jobs:
         script: |
           cd /root/todoist
           docker-compose down || true
-          docker-compose up -d --pull always
+          docker-compose up -d --force-recreate
 

@@ -48,6 +48,7 @@ async function fetchProjects() {
         response.data.forEach(project => {
             projects[project.name] = project.id;
         });
+        console.log(projects)
         return projects;
     } catch (error) {
         console.error("Ошибка при получении проектов:", error);
@@ -75,7 +76,8 @@ async function sendTaskToTodoist(chatId) {
 
     const projects = await fetchProjects(); // Получаем список проектов
     const projectId = projects[projectName]; // Получаем ID проекта по имени
-
+    console.log(projects)
+    console.log(projectId)
     if (!projectId) {
         console.error("Проект не найден:", projectName);
         bot.sendMessage(chatId, `Проект "${projectName}" не найден.`);
