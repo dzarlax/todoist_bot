@@ -37,17 +37,17 @@ jobs:
             fi
           done
           echo "Bump type determined as: $BUMP_TYPE"
-          echo ::set-output name=bump_type::$BUMP_TYPE
+          echo name=bump_type::$BUMP_TYPE >> $GITHUB_OUTPUT
 
       - name: Generate changelog
         id: changelog
         run: |
-          CHANGELOG=$(git log $LATEST_TAG..HEAD --pretty=format:"- %s")
+          CHANGELOG=$(git log $LATEST_TAG --pretty=format:"- %s")
           if [ -z "$CHANGELOG" ]; then
             echo "No new commits to add to changelog."
             CHANGELOG="Minor updates."
           fi
-          echo ::set-output name=changelog::"$CHANGELOG"
+          echo name=changelog::"$CHANGELOG" >> $GITHUB_OUTPUT
           echo "Changelog: $CHANGELOG"
 
       - name: Bump version and push tag
