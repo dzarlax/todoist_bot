@@ -61,7 +61,7 @@ async function fetchProjects() {
 // Функция для отправки задачи в Todoist
 async function sendTaskToTodoist(chatId) {
     // Проверка, нужно ли добавлять дату выполнения
-    const addDueDate = process.env.ADD_DUE_DATE === 'true';
+    const addDueDate = process.env.AUTO_ADD_DUE_DATE === 'true';
 
     if (!messageBuffer.has(chatId)) return;
 
