@@ -73,8 +73,7 @@ async function sendTaskToTodoist(chatId) {
   if (!projectName) {
     console.error("Проект для пользователя не найден:", sender);
     bot.sendMessage(chatId, `Проект для пользователя "${sender}" не найден, задача будет помещена во входящие.`);
-    const projectName = 'Inbox'
-    return projectName;
+    projectName = 'Inbox'
   }
 
     const projects = await fetchProjects(); // Получаем список проектов
