@@ -5,7 +5,7 @@ FROM node:latest
 WORKDIR /usr/src/app
 
 # Копируйте файлы package.json и package-lock.json
-COPY package*.json ./
+COPY src/package*.json ./
 
 # Установите зависимости проекта
 RUN npm install
