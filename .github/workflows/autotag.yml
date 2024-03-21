@@ -1,0 +1,43 @@
+name: Conditional Major Tag
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0 # Важно для получения истории коммитов
+
+      - name: Determine version bump
+        id: version_bump
+        run: |
+          git fetch --tags
+          LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
+          echo "Latest tag: $LATEST_TAG"
+          BUMP_TYPE="patch" # Значение по умолчанию
+          for COMMIT_MESSAGE in $(git log $LATEST_TAG..HEAD --pretty=format:%s)
+          do
+            if [[ "$COMMIT_MESSAGE" == *"MAJOR"* ]]; then
+              BUMP_TYPE="major"
+              break
+            elif [[ "$COMMIT_MESSAGE" == *"MINOR"* ]]; then
+              BUMP_TYPE="minor"
+            fi
+          done
+          echo "Bump type: $BUMP_TYPE"
+          echo ::set-output name=bump_type::$BUMP_TYPE
+
+      - name: Bump version and push tag
+        if: steps.version_bump.outputs.bump_type == 'major'
+        uses: anothrNick/github-tag-action@1.36.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BUMP: ${{ steps.version_bump.outputs.bump_type }}
+          RELEASE_BRANCHES: main
+          WITH_V: true
