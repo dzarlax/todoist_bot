@@ -3,7 +3,7 @@ name: Deploy Bot
 # Запускается вручную или после успешного выполнения docker-publish
 on:
   workflow_run:
-    workflows: [Auto Tag, Release, and Changelog"]
+    workflows: ["Auto Tag, Release, and Changelog"]
     types:
       - completed
 
