@@ -68,18 +68,24 @@ async function sendTaskToTodoist(chatId) {
     const title = buffer.messages[0];
     let description = buffer.messages.slice(1).join('\n');
     const sender = title.split(': ')[0];
-  const projectName = findProjectNameForUser(sender); // Используйте функцию для определения имени проекта
+    let projectName = findProjectNameForUser(sender); // Используйте функцию для определения имени проекта
 
-  if (!projectName) {
-    console.error("Проект для пользователя не найден:", sender);
-    bot.sendMessage(chatId, `Проект для пользователя "${sender}" не найден, задача будет помещена во входящие.`);
-    projectName = 'Inbox'
-  }
+    if (!projectName) {
+        console.error("Проект для пользователя не найден:", sender);
+        bot.sendMessage(chatId, `Проект для пользователя "${sender}" не найден, задача будет помещена во входящие.`);
+        projectName = 'Inbox';
+    }
 
-    const projects = await fetchProjects(); // Получаем список проектов
+    let projects;
+    try {
+        projects = await fetchProjects(); // Получаем список проектов с обработкой ошибок
+    } catch (error) {
+        console.error("Ошибка при получении списка проектов:", error);
+        bot.sendMessage(chatId, 'Произошла ошибка при попытке получить список проектов.');
+        return;
+    }
+
     const projectId = projects[projectName]; // Получаем ID проекта по имени
-    console.log(projects)
-    console.log(projectId)
     if (!projectId) {
         console.error("Проект не найден:", projectName);
         bot.sendMessage(chatId, `Проект "${projectName}" не найден.`);
