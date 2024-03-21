@@ -1,50 +1,42 @@
 # Todoist Telegram Bot
 
 ## Table of Contents
-- [Description (EN)](#description)
-- [Key Features (EN)](#key-features)
-- [Technologies (EN)](#technologies)
-- [Getting Started (EN)](#getting-started)
-  - [Prerequisites (EN)](#prerequisites)
-  - [Installation and Launch (EN)](#installation-and-launch)
-    - [Cloning the Repository (EN)](#cloning-the-repository)
-    - [Setting up docker-compose (EN)](#setting-up-docker-compose)
-    - [Launching the Bot (EN)](#launching-the-bot)
-    - [Checking the Bot's Operation (EN)](#checking-the-bots-operation)
-    - [Stopping the Bot (EN)](#stopping-the-bot)
-- [Описание (RU)](#описание)
-- [Основные функции (RU)](#основные-функции)
-- [Технологии (RU)](#технологии)
-- [Начало работы (RU)](#начало-работы)
-  - [Предварительные требования (RU)](#предварительные-требования)
-  - [Установка и запуск (RU)](#установка-и-запуск)
-    - [Клонирование репозитория (RU)](#клонирование-репозитория)
-    - [Настройка docker-compose (RU)](#настройка-docker-compose)
-    - [Запуск бота (RU)](#запуск-бота)
-    - [Проверка работы бота (RU)](#проверка-работы-бота)
-    - [Остановка бота (RU)](#остановка-бота)
-
-## Description
-
-The Todoist Telegram Bot is an automated assistant designed to integrate your Todoist account with Telegram. It allows you to quickly and conveniently add tasks to your Todoist directly from Telegram using simple text messages or by forwarding messages from other users. The bot automatically identifies the project by the user's name and adds tasks to the corresponding section of your Todoist. There is also an option to automatically add today's date as the due date for tasks.
-
-## Key Features
-
-- **Automatic task addition**: The bot accepts text messages and forwards them as new tasks to your Todoist. This can be either direct text messages to the bot or messages forwarded from other users.
-- **Message forwarding**: You can forward messages from other users
+- [Description ](#description)
+- [Key Features ](#key-features)
+- [Technologies ](#technologies)
+- [Getting Started ](#getting-started)
+  - [Prerequisites ](#prerequisites)
+  - [Installation and Launch ](#installation-and-launch)
+    - [Cloning the Repository ](#cloning-the-repository)
+    - [Setting up docker-compose ](#setting-up-docker-compose)
+    - [Launching the Bot ](#launching-the-bot)
+    - [Checking the Bot's Operation ](#checking-the-bots-operation)
+    - [Stopping the Bot ](#stopping-the-bot)
+- [Описание ](#описание)
+- [Основные функции ](#основные-функции)
+- [Технологии ](#технологии)
+- [Начало работы ](#начало-работы)
+  - [Предварительные требования ](#предварительные-требования)
+  - [Установка и запуск ](#установка-и-запуск)
+    - [Клонирование репозитория ](#клонирование-репозитория)
+    - [Настройка docker-compose ](#настройка-docker-compose)
+    - [Запуск бота ](#запуск-бота)
+    - [Проверка работы бота ](#проверка-работы-бота)
+    - [Остановка бота ](#остановка-бота)
 
 
 ## Description
 
-The Todoist Telegram Bot is an automated assistant designed to integrate your Todoist account with Telegram. It allows you to quickly and conveniently add tasks to your Todoist directly from Telegram using simple text messages or by forwarding messages from other users. The bot automatically identifies the project by the user's name and adds tasks to the corresponding section of your Todoist. There is also an option to automatically add today's date as the due date for tasks.
+The Todoist Telegram Bot is an automated assistant designed to integrate your Todoist account with Telegram. It allows you to quickly and conveniently add tasks to your Todoist directly from Telegram using simple text messages or by forwarding messages from other users. The bot automatically identifies the project by the user's name and adds tasks to the corresponding section of your Todoist. Messages sent within the timer interval will be concatenated into a single task. There is also an option to automatically add today's date as the due date for tasks.
 
 ## Key Features
 
-- **Automatic task addition**: The bot accepts text messages and forwards them as new tasks to your Todoist. This can be either direct text messages to the bot or messages forwarded from other users.
+- **Automatic task addition**: The bot accepts text messages and forwards them as new tasks to your Todoist. This can be either direct text messages to the bot or messages forwarded from other users. Messages sent within a specified timer interval are concatenated into a single task.
 - **Message forwarding**: You can forward messages from other users or from other chats to the bot, and it will automatically add these messages as tasks to your Todoist.
 - **Project identification by user name**: Based on the preliminary setup, the bot associates Telegram users with projects in Todoist, automatically placing tasks in the appropriate projects.
 - **Optional due date addition**: You can configure the bot so that each added task automatically receives a due date — the current date.
 - **Easy setup and launch via Docker**: Thanks to the use of Docker and Docker Compose, launching and maintaining the bot does not require complex settings.
+
 
 ## Technologies
 
@@ -65,7 +57,7 @@ The bot is developed in Node.js using the `node-telegram-bot-api` library for in
 Open a terminal and execute the following command to clone the repository:
 
 ```bash
-git clone your_repository_link
+git clone https://github.com/dzarlax/todoist_bot.git
 ```
 Navigate to the project directory:
 
@@ -77,7 +69,7 @@ cd todoist_bot
 Open the file docker-compose_example.yml and fill in the following variables:
 
 ```makefile
-PROJECT_USERS_PROJECTNAME1: "@user1,@user2" # Replace PROJECTNAME1 with the name of the project in Todoist (if the project is in Russian, then it should be taken in quotes), replace @user1,@user2 with the users whose messages you want to add to this project
+PROJECT_USERS_PROJECTNAME1: "@user1,@user2" # Replace PROJECTNAME1 with the name of the project in Todoist , replace @user1,@user2 with the users whose messages you want to add to this project
 TELEGRAM_TOKEN: your_botfather_token
 TODOIST_TOKEN: your_todoist_api_token
 TIMER: time_for_timer_in_seconds
@@ -107,11 +99,11 @@ docker-compose down
 
 ## Описание
 
-Todoist Telegram Bot — это автоматизированный помощник, предназначенный для интеграции вашего аккаунта Todoist с Telegram. С его помощью вы можете быстро и удобно добавлять задачи в ваш Todoist прямо из Telegram, используя простые текстовые сообщения или пересылая сообщения от других пользователей. Бот автоматически определяет проект по имени пользователя и добавляет задачи в соответствующий раздел вашего Todoist. Также есть возможность настройки автоматического добавления даты выполнения задач на сегодняшний день.
+Todoist Telegram Bot — это автоматизированный помощник, предназначенный для интеграции вашего аккаунта Todoist с Telegram. С его помощью вы можете быстро и удобно добавлять задачи в ваш Todoist прямо из Telegram, используя простые текстовые сообщения или пересылая сообщения от других пользователей. Бот автоматически определяет проект по имени пользователя и добавляет задачи в соответствующий раздел вашего Todoist. Сообщения, отправленные в течение интервала таймера, будут объединены в одну задачу. Также есть возможность настройки автоматического добавления даты выполнения задач на сегодняшний день.
 
 ## Основные функции
 
-- **Автоматическое добавление задач**: Бот принимает текстовые сообщения и добавляет их как новые задачи в ваш Todoist. Это может быть как написание текста напрямую боту, так и пересылка сообщений от других пользователей.
+- **Автоматическое добавление задач**: Бот принимает текстовые сообщения и добавляет их как новые задачи в ваш Todoist. Это может быть как написание текста напрямую боту, так и пересылка сообщений от других пользователей. Сообщения, отправленные в пределах установленного времени таймера, будут склеены в одну задачу.
 - **Пересылка сообщений**: Вы можете пересылать сообщения от других пользователей или из других чатов боту, и он автоматически добавит эти сообщения как задачи в ваш Todoist.
 - **Определение проекта по имени пользователя**: На основе предварительной настройки бот ассоциирует пользователей Telegram с проектами в Todoist, автоматически размещая задачи в нужных проектах.
 - **Опциональное добавление даты выполнения**: Вы можете настроить бота так, чтобы каждая добавленная задача автоматически получала срок выполнения — текущую дату.
@@ -137,7 +129,7 @@ Todoist Telegram Bot — это автоматизированный помощ�
 Откройте терминал и выполните следующую команду для клонирования репозитория:
 
 ```bash
-git clone ссылка_на_ваш_репозиторий
+git clone https://github.com/dzarlax/todoist_bot.git
 ```
 Перейдите в директорию проекта:
 
@@ -148,11 +140,11 @@ cd todoist_bot
 
 Откройте файл docker-compose_example.yml и заполните следующие переменные
 ```makefile
-PROJECT_USERS_PROJECTNAME1: "@user1,@user2" ( PROJECTNAME1 нужно заменить на название проекта в Todoist (если проект на русском, то его нужно взять в кавычки), @user1,@user2 нужно заменить на пользователей сообщения от которых вы хотите добавлять в этот проект)
+PROJECT_USERS_PROJECTNAME1: "@user1,@user2" # PROJECTNAME1 нужно заменить на название проекта в Todoist (если проект на русском, то его нужно взять в кавычки), @user1,@user2 нужно заменить на пользователей сообщения от которых вы хотите добавлять в этот проект
 TELEGRAM_TOKEN: ваш_токен_от_botfather
 TODOIST_TOKEN: ваш_todoist_api_токен
 TIMER: время_для_таймера_в_секундах
-ADD_DUE_DATE: 'true' или 'false' (в зависимости от того, хотите ли вы автоматически устанавливать срок выполнения задач на сегодня)
+ADD_DUE_DATE: 'true' или 'false' # в зависимости от того, хотите ли вы автоматически устанавливать срок выполнения задач на сегодня 
 ```
 Сохраните файл как docker-compose.yml
 
