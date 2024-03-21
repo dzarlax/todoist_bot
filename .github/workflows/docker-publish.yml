@@ -1,7 +1,10 @@
 name: Build and Push Docker image on Release
 
 on:
-  release:
+  workflow_run:
+    workflows: ["Build and Push Docker image on Release"]
+    types:
+      - completed
 
 jobs:
   build-and-push:
