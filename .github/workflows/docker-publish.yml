@@ -2,7 +2,7 @@ name: Build and Push Docker image on Release
 
 on:
   workflow_run:
-    workflows: ["Build and Push Docker image on Release"]
+    workflows: ["Auto Tag, Release, and Changelog"]
     types:
       - completed
 
