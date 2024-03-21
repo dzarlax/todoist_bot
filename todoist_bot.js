@@ -60,6 +60,9 @@ async function fetchProjects() {
 
 // Функция для отправки задачи в Todoist
 async function sendTaskToTodoist(chatId) {
+    // Проверка, нужно ли добавлять дату выполнения
+    const addDueDate = process.env.ADD_DUE_DATE === 'true';
+
     if (!messageBuffer.has(chatId)) return;
 
     const buffer = messageBuffer.get(chatId);
@@ -68,7 +71,7 @@ async function sendTaskToTodoist(chatId) {
     const title = buffer.messages[0];
     let description = buffer.messages.slice(1).join('\n');
     const sender = title.split(': ')[0];
-    let projectName = findProjectNameForUser(sender); // Используйте функцию для определения имени проекта
+    let projectName = findProjectNameForUser(sender);
 
     if (!projectName) {
         console.error("Проект для пользователя не найден:", sender);
@@ -78,34 +81,39 @@ async function sendTaskToTodoist(chatId) {
 
     let projects;
     try {
-        projects = await fetchProjects(); // Получаем список проектов с обработкой ошибок
+        projects = await fetchProjects();
     } catch (error) {
         console.error("Ошибка при получении списка проектов:", error);
         bot.sendMessage(chatId, 'Произошла ошибка при попытке получить список проектов.');
         return;
     }
 
-    const projectId = projects[projectName]; // Получаем ID проекта по имени
+    const projectId = projects[projectName];
     if (!projectId) {
         console.error("Проект не найден:", projectName);
         bot.sendMessage(chatId, `Проект "${projectName}" не найден.`);
         return;
     }
 
-    // Получение сегодняшней даты в формате YYYY-MM-DD
-    const today = new Date().toISOString().split('T')[0];
-
-    axios.post('https://api.todoist.com/rest/v2/tasks', {
+    // Формирование тела запроса с учётом опционального добавления due_date
+    const taskData = {
         content: title + (description ? `\n\nОписание:\n${description}` : ''),
-        project_id: projectId,
-        due_date: today, // Установка сегодняшней даты как даты выполнения задачи
-    }, {
+        project_id: projectId
+    };
+
+    if (addDueDate) {
+        // Получение сегодняшней даты в формате YYYY-MM-DD
+        const today = new Date().toISOString().split('T')[0];
+        taskData.due_date = today;
+    }
+
+    axios.post('https://api.todoist.com/rest/v2/tasks', taskData, {
         headers: {
             'Authorization': `Bearer ${todoistToken}`
         }
     })
     .then(response => {
-        bot.sendMessage(chatId, `Задача успешно добавлена в проект "${projectName}" с датой выполнения на сегодня!`);
+        bot.sendMessage(chatId, `Задача успешно добавлена в проект "${projectName}"${addDueDate ? ' с датой выполнения на сегодня' : ''}!`);
     })
     .catch(error => {
         console.error(error);
@@ -114,6 +122,7 @@ async function sendTaskToTodoist(chatId) {
 
     messageBuffer.delete(chatId);
 }
+
 
 // Обработка входящих сообщений
 function handleMessage(msg) {
