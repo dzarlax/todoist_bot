@@ -92,16 +92,20 @@ async function sendTaskToTodoist(chatId) {
         return;
     }
 
+    // Получение сегодняшней даты в формате YYYY-MM-DD
+    const today = new Date().toISOString().split('T')[0];
+
     axios.post('https://api.todoist.com/rest/v2/tasks', {
         content: title + (description ? `\n\nОписание:\n${description}` : ''),
         project_id: projectId,
+        due_date: today, // Установка сегодняшней даты как даты выполнения задачи
     }, {
         headers: {
             'Authorization': `Bearer ${todoistToken}`
         }
     })
     .then(response => {
-        bot.sendMessage(chatId, `Задача успешно добавлена в проект "${projectName}"!`);
+        bot.sendMessage(chatId, `Задача успешно добавлена в проект "${projectName}" с датой выполнения на сегодня!`);
     })
     .catch(error => {
         console.error(error);
