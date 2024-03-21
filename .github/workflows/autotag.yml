@@ -1,4 +1,4 @@
-name: Conditional Major Tag
+name: Auto Tag, Release, and Changelog
 
 on:
   push:
@@ -6,13 +6,18 @@ on:
       - main
 
 jobs:
-  tag:
+  tag-release-changelog:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
-          fetch-depth: 0 # Важно для получения истории коммитов
+          fetch-depth: 0 # Получаем всю историю для генерации чейнджлога
+
+      - name: Setup Git
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
 
       - name: Determine version bump
         id: version_bump
@@ -20,7 +25,8 @@ jobs:
           git fetch --tags
           LATEST_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
           echo "Latest tag: $LATEST_TAG"
-          BUMP_TYPE="patch" # Значение по умолчанию
+          BUMP_TYPE="patch" # По умолчанию
+          echo "Checking commit messages for version bump type..."
           for COMMIT_MESSAGE in $(git log $LATEST_TAG..HEAD --pretty=format:%s)
           do
             if [[ "$COMMIT_MESSAGE" == *"MAJOR"* ]]; then
@@ -30,14 +36,36 @@ jobs:
               BUMP_TYPE="minor"
             fi
           done
-          echo "Bump type: $BUMP_TYPE"
+          echo "Bump type determined as: $BUMP_TYPE"
           echo ::set-output name=bump_type::$BUMP_TYPE
 
+      - name: Generate changelog
+        id: changelog
+        run: |
+          CHANGELOG=$(git log $LATEST_TAG..HEAD --pretty=format:"- %s")
+          if [ -z "$CHANGELOG" ]; then
+            echo "No new commits to add to changelog."
+            CHANGELOG="Minor updates."
+          fi
+          echo ::set-output name=changelog::"$CHANGELOG"
+          echo "Changelog: $CHANGELOG"
+
       - name: Bump version and push tag
-        if: steps.version_bump.outputs.bump_type == 'major'
+        id: bump_and_tag
         uses: anothrNick/github-tag-action@1.36.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEFAULT_BUMP: ${{ steps.version_bump.outputs.bump_type }}
           RELEASE_BRANCHES: main
           WITH_V: true
+
+      - name: Create GitHub release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.bump_and_tag.outputs.new_tag }}
+          release_name: Release ${{ steps.bump_and_tag.outputs.new_tag }}
+          draft: false
+          prerelease: false
+          body: ${{ steps.changelog.outputs.changelog }}
