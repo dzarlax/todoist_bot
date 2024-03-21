@@ -42,7 +42,7 @@ jobs:
       - name: Generate changelog
         id: changelog
         run: |
-          CHANGELOG=$(git log $LATEST_TAG --pretty=format:"- %s")
+          CHANGELOG=$(git log $LATEST_TAG..HEAD --pretty=format:"- %s")
           if [ -z "$CHANGELOG" ]; then
             echo "No new commits to add to changelog."
             CHANGELOG="Minor updates."
