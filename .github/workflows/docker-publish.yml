@@ -1,11 +1,10 @@
 name: Build and Push Docker image
 
 on:
-  push:
-    branches:
-      - main  
-    tags:
-      - 'v*'
+  workflow_run:
+    workflows: ["Auto Tag, Release, and Changelog"]
+    types:
+      - completed
 
 jobs:
   build-and-push:
