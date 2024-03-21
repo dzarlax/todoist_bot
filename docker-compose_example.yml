@@ -6,6 +6,7 @@ services:
     environment:
       PROJECT_USERS_PROJECTNAME1: "@user1,@user2"
       PROJECT_USERS_PROJECTNAME2: "@user3,@user4"
-      TODOIST_TOKEN=
-      TELEGRAM_TOKEN=
-      TIMER=5
+      TODOIST_TOKEN: 
+      TELEGRAM_TOKEN: 
+      TIMER: 5
+      AUTO_ADD_DUE_DATE: "true"
