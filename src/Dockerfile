@@ -14,4 +14,4 @@ RUN npm install
 COPY . .
 
 # Задайте команду для запуска бота
-CMD [ "node", "todoist_bot.js" ]
+CMD [ "node", "src/app/todoist_bot.js" ]
