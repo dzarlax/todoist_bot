@@ -253,24 +253,7 @@ async function sendTaskToTodoist(chatId) {
     const title = buffer.messages[0];
     let description = buffer.messages.slice(1).join('\n');
     
-    // Добавляем ссылки на медиафайлы в описание задачи
-    if (buffer.media && buffer.media.length > 0) {
-        const mediaLinks = buffer.media.map(media => {
-            if (media.isDirectLink) {
-                if (media.description) {
-                    return `${media.type}: ${media.description}\n${media.link}`;
-                }
-                return `[${media.type}](${media.link})`;
-            }
-            return `[${media.type}](${media.link})`;
-        }).join('\n');
-        
-        if (description) {
-            description += '\n\nМедиа:\n' + mediaLinks;
-        } else {
-            description = 'Медиа:\n' + mediaLinks;
-        }
-    }
+    // Медиа файлы теперь включены непосредственно в сообщения, поэтому не нужно добавлять их отдельно
     
     const sender = title.split(': ')[0];
     let projectName = findProjectNameForUser(sender);
@@ -299,7 +282,8 @@ async function sendTaskToTodoist(chatId) {
 
     // Формирование тела запроса с учётом опционального добавления due_date
     const taskData = {
-        content: title + (description ? `\n\nОписание:\n${description}` : ''),
+        content: title,
+        description: description ? description : '',
         project_id: projectId
     };
 
@@ -356,9 +340,16 @@ async function handleMessage(msg) {
       // Если есть подпись к медиа, используем её как текст и форматируем ссылки
       if (msg.caption) {
         messageContent = formatTextWithLinks(msg.caption, msg.caption_entities);
+        
+        // Добавляем ссылку на медиа прямо в текст сообщения
+        if (mediaInfo) {
+          messageContent += ` [${mediaInfo.type}](${mediaInfo.link})`;
+          mediaInfo = null; // Обнуляем mediaInfo, так как мы уже добавили ссылку в текст
+        }
       } else {
-        // Если нет подписи, используем тип медиа как текст
-        messageContent = mediaInfo ? `[${mediaInfo.type}]` : '[неизвестный тип медиа]';
+        // Если нет подписи, используем тип медиа как текст с ссылкой
+        messageContent = mediaInfo ? `[${mediaInfo.type}](${mediaInfo.link})` : '[неизвестный тип медиа]';
+        mediaInfo = null; // Обнуляем mediaInfo, так как мы уже добавили ссылку в текст
       }
     }
 
@@ -407,48 +398,56 @@ bot.on('mediagroup', async (mediaGroup) => {
         senderName = senderMsg.from.username ? `@${senderMsg.from.username}` : `${senderMsg.from.first_name} ${senderMsg.from.last_name || ''}`.trim();
     }
     
-    // Используем первое сообщение как заголовок, форматируем ссылки в подписи
-    let firstCaption = senderMsg.caption || '[медиа группа]';
-    if (senderMsg.caption && senderMsg.caption_entities) {
-      firstCaption = formatTextWithLinks(senderMsg.caption, senderMsg.caption_entities);
-    }
-    
-    const messageWithSender = `${senderName}: ${firstCaption}`;
-    
-    // Собираем все медиа из группы
+    // Получаем ссылки на все медиа из группы
     const mediaPromises = mediaGroup.map(msg => getMediaLink(msg));
     const mediaResults = await Promise.all(mediaPromises);
     const mediaInfos = mediaResults.filter(Boolean);
     
-    // Обрабатываем подписи к остальным медиа в группе
-    const captionMessages = [];
-    mediaGroup.slice(1).forEach(msg => {
-      if (msg.caption) {
-        let formattedCaption = msg.caption;
-        if (msg.caption_entities) {
-          formattedCaption = formatTextWithLinks(msg.caption, msg.caption_entities);
-        }
-        captionMessages.push(`${senderName}: ${formattedCaption}`);
+    // Создаем сообщения с медиа и их подписями
+    const messages = [];
+    
+    // Обрабатываем первое сообщение
+    let firstMessage = '';
+    if (senderMsg.caption) {
+      let formattedCaption = formatTextWithLinks(senderMsg.caption, senderMsg.caption_entities);
+      // Добавляем ссылку на медиа прямо в текст
+      if (mediaInfos.length > 0) {
+        formattedCaption += ` [${mediaInfos[0].type}](${mediaInfos[0].link})`;
       }
-    });
+      firstMessage = `${senderName}: ${formattedCaption}`;
+    } else {
+      // Если нет подписи, используем тип медиа как текст
+      const mediaText = mediaInfos.length > 0 ? `[${mediaInfos[0].type}](${mediaInfos[0].link})` : '[медиа группа]';
+      firstMessage = `${senderName}: ${mediaText}`;
+    }
+    messages.push(firstMessage);
+    
+    // Обрабатываем остальные сообщения в группе
+    for (let i = 1; i < mediaGroup.length; i++) {
+      const msg = mediaGroup[i];
+      if (msg.caption) {
+        let formattedCaption = formatTextWithLinks(msg.caption, msg.caption_entities);
+        // Добавляем ссылку на медиа прямо в текст
+        if (i < mediaInfos.length) {
+          formattedCaption += ` [${mediaInfos[i].type}](${mediaInfos[i].link})`;
+        }
+        messages.push(`${senderName}: ${formattedCaption}`);
+      } else if (i < mediaInfos.length) {
+        // Если нет подписи, создаем сообщение только с медиа
+        messages.push(`${senderName}: [${mediaInfos[i].type}](${mediaInfos[i].link})`);
+      }
+    }
     
     if (!messageBuffer.has(chatId)) {
         messageBuffer.set(chatId, {
-            messages: [messageWithSender, ...captionMessages],
-            media: mediaInfos,
+            messages: messages,
+            media: [], // Медиа уже включены в сообщения
             timer: setTimeout(() => sendTaskToTodoist(chatId), timer*1000)
         });
     } else {
         const buffer = messageBuffer.get(chatId);
         clearTimeout(buffer.timer);
-        buffer.messages.push(messageWithSender);
-        buffer.messages.push(...captionMessages);
-        
-        if (!buffer.media) {
-            buffer.media = [];
-        }
-        buffer.media.push(...mediaInfos);
-        
+        buffer.messages.push(...messages);
         buffer.timer = setTimeout(() => sendTaskToTodoist(chatId), timer*1000);
     }
   } catch (error) {
