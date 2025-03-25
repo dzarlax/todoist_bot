@@ -58,6 +58,17 @@ async function fetchProjects() {
     }
 }
 
+// Функция для извлечения URL из текста
+function extractUrls(text) {
+  if (!text) return [];
+  
+  // Регулярное выражение для поиска URL
+  // Поддерживает http, https, ftp, а также URL без протокола, начинающиеся с www.
+  const urlRegex = /(https?:\/\/|www\.)[^\s]+(\.[^\s]+)+/gi;
+  
+  return text.match(urlRegex) || [];
+}
+
 // Функция для получения ссылки на медиафайл
 async function getMediaLink(msg) {
   try {
@@ -186,6 +197,40 @@ async function sendTaskToTodoist(chatId) {
         }
     }
     
+    // Добавляем ссылки из текста в описание задачи, если они не были уже включены в текст
+    if (buffer.urls && buffer.urls.length > 0) {
+        // Удаляем дубликаты URL
+        const uniqueUrls = [...new Set(buffer.urls)];
+        
+        // Проверяем, есть ли уже раздел с медиа
+        const hasMediaSection = description && description.includes('\n\nМедиа:\n');
+        
+        // Если есть раздел с медиа, добавляем ссылки туда, иначе создаем новый раздел
+        if (hasMediaSection) {
+            // Добавляем ссылки в существующий раздел с медиа
+            const urlLinks = uniqueUrls.map(url => {
+                // Если URL начинается с www., добавляем https://
+                const fullUrl = url.startsWith('www.') ? `https://${url}` : url;
+                return `[${url}](${fullUrl})`;
+            }).join('\n');
+            
+            description += '\n' + urlLinks;
+        } else {
+            // Создаем новый раздел для ссылок
+            const urlLinks = uniqueUrls.map(url => {
+                // Если URL начинается с www., добавляем https://
+                const fullUrl = url.startsWith('www.') ? `https://${url}` : url;
+                return `[${url}](${fullUrl})`;
+            }).join('\n');
+            
+            if (description) {
+                description += '\n\nСсылки:\n' + urlLinks;
+            } else {
+                description = 'Ссылки:\n' + urlLinks;
+            }
+        }
+    }
+    
     const sender = title.split(': ')[0];
     let projectName = findProjectNameForUser(sender);
 
@@ -258,17 +303,21 @@ async function handleMessage(msg) {
 
     let messageContent;
     let mediaInfo = null;
+    let urls = [];
 
     // Проверяем, содержит ли сообщение текст
     if (msg.text) {
       messageContent = msg.text;
+      // Извлекаем URL из текста
+      urls = extractUrls(msg.text);
     } else {
       // Если нет текста, проверяем наличие медиа и получаем ссылку
       mediaInfo = await getMediaLink(msg);
       
-      // Если есть подпись к медиа, используем её как текст
+      // Если есть подпись к медиа, используем её как текст и проверяем на наличие URL
       if (msg.caption) {
         messageContent = msg.caption;
+        urls = extractUrls(msg.caption);
       } else {
         // Если нет подписи, используем тип медиа как текст
         messageContent = mediaInfo ? `[${mediaInfo.type}]` : '[неизвестный тип медиа]';
@@ -281,18 +330,28 @@ async function handleMessage(msg) {
         messageBuffer.set(chatId, {
             messages: [messageWithSender],
             media: mediaInfo ? [mediaInfo] : [],
+            urls: urls.length > 0 ? urls : [],
             timer: setTimeout(() => sendTaskToTodoist(chatId), timer*1000)
         });
     } else {
         const buffer = messageBuffer.get(chatId);
         clearTimeout(buffer.timer);
         buffer.messages.push(messageWithSender);
+        
         if (mediaInfo) {
           if (!buffer.media) {
             buffer.media = [];
           }
           buffer.media.push(mediaInfo);
         }
+        
+        if (urls.length > 0) {
+          if (!buffer.urls) {
+            buffer.urls = [];
+          }
+          buffer.urls.push(...urls);
+        }
+        
         buffer.timer = setTimeout(() => sendTaskToTodoist(chatId), timer*1000);
     }
   } catch (error) {
@@ -327,10 +386,22 @@ bot.on('mediagroup', async (mediaGroup) => {
     const mediaResults = await Promise.all(mediaPromises);
     const mediaInfos = mediaResults.filter(Boolean);
     
+    // Извлекаем URL из подписей к медиа
+    let urls = [];
+    mediaGroup.forEach(msg => {
+      if (msg.caption) {
+        const extractedUrls = extractUrls(msg.caption);
+        if (extractedUrls.length > 0) {
+          urls.push(...extractedUrls);
+        }
+      }
+    });
+    
     if (!messageBuffer.has(chatId)) {
         messageBuffer.set(chatId, {
             messages: [messageWithSender],
             media: mediaInfos,
+            urls: urls.length > 0 ? urls : [],
             timer: setTimeout(() => sendTaskToTodoist(chatId), timer*1000)
         });
     } else {
@@ -342,6 +413,13 @@ bot.on('mediagroup', async (mediaGroup) => {
             buffer.media = [];
         }
         buffer.media.push(...mediaInfos);
+        
+        if (urls.length > 0) {
+          if (!buffer.urls) {
+            buffer.urls = [];
+          }
+          buffer.urls.push(...urls);
+        }
         
         buffer.timer = setTimeout(() => sendTaskToTodoist(chatId), timer*1000);
     }
