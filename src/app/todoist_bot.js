@@ -69,6 +69,29 @@ function extractUrls(text) {
   return text.match(urlRegex) || [];
 }
 
+// Функция для извлечения форматированных гиперссылок из текста
+function extractFormattedLinks(text, entities) {
+  if (!text || !entities || !Array.isArray(entities)) return [];
+  
+  const formattedLinks = [];
+  
+  // Обрабатываем текстовые сущности (entities) из Telegram
+  entities.forEach(entity => {
+    // Проверяем, является ли сущность текстовой ссылкой
+    if (entity.type === 'text_link' && entity.url) {
+      // Извлекаем текст ссылки
+      const linkText = text.substring(entity.offset, entity.offset + entity.length);
+      
+      formattedLinks.push({
+        text: linkText,
+        url: entity.url
+      });
+    }
+  });
+  
+  return formattedLinks;
+}
+
 // Функция для получения ссылки на медиафайл
 async function getMediaLink(msg) {
   try {
@@ -198,35 +221,40 @@ async function sendTaskToTodoist(chatId) {
     }
     
     // Добавляем ссылки из текста в описание задачи, если они не были уже включены в текст
-    if (buffer.urls && buffer.urls.length > 0) {
+    if ((buffer.urls && buffer.urls.length > 0) || (buffer.formattedLinks && buffer.formattedLinks.length > 0)) {
         // Удаляем дубликаты URL
-        const uniqueUrls = [...new Set(buffer.urls)];
+        const uniqueUrls = buffer.urls ? [...new Set(buffer.urls)] : [];
         
         // Проверяем, есть ли уже раздел с медиа
         const hasMediaSection = description && description.includes('\n\nМедиа:\n');
         
+        // Формируем ссылки
+        let linksList = [];
+        
+        // Добавляем обычные URL
+        uniqueUrls.forEach(url => {
+            // Если URL начинается с www., добавляем https://
+            const fullUrl = url.startsWith('www.') ? `https://${url}` : url;
+            linksList.push(`[${url}](${fullUrl})`);
+        });
+        
+        // Добавляем форматированные ссылки
+        if (buffer.formattedLinks && buffer.formattedLinks.length > 0) {
+            buffer.formattedLinks.forEach(link => {
+                linksList.push(`[${link.text}](${link.url})`);
+            });
+        }
+        
         // Если есть раздел с медиа, добавляем ссылки туда, иначе создаем новый раздел
         if (hasMediaSection) {
             // Добавляем ссылки в существующий раздел с медиа
-            const urlLinks = uniqueUrls.map(url => {
-                // Если URL начинается с www., добавляем https://
-                const fullUrl = url.startsWith('www.') ? `https://${url}` : url;
-                return `[${url}](${fullUrl})`;
-            }).join('\n');
-            
-            description += '\n' + urlLinks;
+            description += '\n' + linksList.join('\n');
         } else {
             // Создаем новый раздел для ссылок
-            const urlLinks = uniqueUrls.map(url => {
-                // Если URL начинается с www., добавляем https://
-                const fullUrl = url.startsWith('www.') ? `https://${url}` : url;
-                return `[${url}](${fullUrl})`;
-            }).join('\n');
-            
             if (description) {
-                description += '\n\nСсылки:\n' + urlLinks;
+                description += '\n\nСсылки:\n' + linksList.join('\n');
             } else {
-                description = 'Ссылки:\n' + urlLinks;
+                description = 'Ссылки:\n' + linksList.join('\n');
             }
         }
     }
@@ -304,12 +332,15 @@ async function handleMessage(msg) {
     let messageContent;
     let mediaInfo = null;
     let urls = [];
+    let formattedLinks = [];
 
     // Проверяем, содержит ли сообщение текст
     if (msg.text) {
       messageContent = msg.text;
       // Извлекаем URL из текста
       urls = extractUrls(msg.text);
+      // Извлекаем форматированные ссылки из текста
+      formattedLinks = extractFormattedLinks(msg.text, msg.entities);
     } else {
       // Если нет текста, проверяем наличие медиа и получаем ссылку
       mediaInfo = await getMediaLink(msg);
@@ -318,6 +349,8 @@ async function handleMessage(msg) {
       if (msg.caption) {
         messageContent = msg.caption;
         urls = extractUrls(msg.caption);
+        // Извлекаем форматированные ссылки из подписи
+        formattedLinks = extractFormattedLinks(msg.caption, msg.caption_entities);
       } else {
         // Если нет подписи, используем тип медиа как текст
         messageContent = mediaInfo ? `[${mediaInfo.type}]` : '[неизвестный тип медиа]';
@@ -331,6 +364,7 @@ async function handleMessage(msg) {
             messages: [messageWithSender],
             media: mediaInfo ? [mediaInfo] : [],
             urls: urls.length > 0 ? urls : [],
+            formattedLinks: formattedLinks.length > 0 ? formattedLinks : [],
             timer: setTimeout(() => sendTaskToTodoist(chatId), timer*1000)
         });
     } else {
@@ -350,6 +384,13 @@ async function handleMessage(msg) {
             buffer.urls = [];
           }
           buffer.urls.push(...urls);
+        }
+        
+        if (formattedLinks.length > 0) {
+          if (!buffer.formattedLinks) {
+            buffer.formattedLinks = [];
+          }
+          buffer.formattedLinks.push(...formattedLinks);
         }
         
         buffer.timer = setTimeout(() => sendTaskToTodoist(chatId), timer*1000);
@@ -386,13 +427,20 @@ bot.on('mediagroup', async (mediaGroup) => {
     const mediaResults = await Promise.all(mediaPromises);
     const mediaInfos = mediaResults.filter(Boolean);
     
-    // Извлекаем URL из подписей к медиа
+    // Извлекаем URL и форматированные ссылки из подписей к медиа
     let urls = [];
+    let formattedLinks = [];
     mediaGroup.forEach(msg => {
       if (msg.caption) {
         const extractedUrls = extractUrls(msg.caption);
         if (extractedUrls.length > 0) {
           urls.push(...extractedUrls);
+        }
+        
+        // Извлекаем форматированные ссылки из подписей
+        const extractedFormattedLinks = extractFormattedLinks(msg.caption, msg.caption_entities);
+        if (extractedFormattedLinks.length > 0) {
+          formattedLinks.push(...extractedFormattedLinks);
         }
       }
     });
@@ -402,6 +450,7 @@ bot.on('mediagroup', async (mediaGroup) => {
             messages: [messageWithSender],
             media: mediaInfos,
             urls: urls.length > 0 ? urls : [],
+            formattedLinks: formattedLinks.length > 0 ? formattedLinks : [],
             timer: setTimeout(() => sendTaskToTodoist(chatId), timer*1000)
         });
     } else {
@@ -419,6 +468,13 @@ bot.on('mediagroup', async (mediaGroup) => {
             buffer.urls = [];
           }
           buffer.urls.push(...urls);
+        }
+        
+        if (formattedLinks.length > 0) {
+          if (!buffer.formattedLinks) {
+            buffer.formattedLinks = [];
+          }
+          buffer.formattedLinks.push(...formattedLinks);
         }
         
         buffer.timer = setTimeout(() => sendTaskToTodoist(chatId), timer*1000);
