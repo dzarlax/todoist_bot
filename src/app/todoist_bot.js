@@ -58,38 +58,90 @@ async function fetchProjects() {
     }
 }
 
-// Функция для извлечения URL из текста
-function extractUrls(text) {
-  if (!text) return [];
+// Функция для форматирования текста с учетом ссылок
+function formatTextWithLinks(text, entities) {
+  if (!text) return text;
   
-  // Регулярное выражение для поиска URL
-  // Поддерживает http, https, ftp, а также URL без протокола, начинающиеся с www.
-  const urlRegex = /(https?:\/\/|www\.)[^\s]+(\.[^\s]+)+/gi;
+  // Если нет сущностей, обрабатываем только обычные URL
+  if (!entities || !Array.isArray(entities) || entities.length === 0) {
+    // Регулярное выражение для поиска URL
+    const urlRegex = /(https?:\/\/|www\.)[^\s]+(\.[^\s]+)+/gi;
+    
+    // Находим все URL в тексте
+    const urls = text.match(urlRegex) || [];
+    
+    // Если нет URL, возвращаем исходный текст
+    if (urls.length === 0) return text;
+    
+    let formattedText = text;
+    
+    // Заменяем каждый URL на его Markdown-версию
+    urls.forEach(url => {
+      // Если URL начинается с www., добавляем https://
+      const fullUrl = url.startsWith('www.') ? `https://${url}` : url;
+      
+      // Заменяем URL на его Markdown-версию
+      formattedText = formattedText.replace(url, `[${url}](${fullUrl})`);
+    });
+    
+    return formattedText;
+  }
   
-  return text.match(urlRegex) || [];
-}
-
-// Функция для извлечения форматированных гиперссылок из текста
-function extractFormattedLinks(text, entities) {
-  if (!text || !entities || !Array.isArray(entities)) return [];
+  // Сортируем сущности в обратном порядке, чтобы начать с конца текста
+  // Это позволяет избежать проблем с изменением индексов при вставке
+  const sortedEntities = [...entities].sort((a, b) => b.offset - a.offset);
   
-  const formattedLinks = [];
+  let formattedText = text;
   
-  // Обрабатываем текстовые сущности (entities) из Telegram
-  entities.forEach(entity => {
-    // Проверяем, является ли сущность текстовой ссылкой
+  // Обрабатываем каждую сущность
+  sortedEntities.forEach(entity => {
     if (entity.type === 'text_link' && entity.url) {
       // Извлекаем текст ссылки
       const linkText = text.substring(entity.offset, entity.offset + entity.length);
       
-      formattedLinks.push({
-        text: linkText,
-        url: entity.url
-      });
+      // Форматируем ссылку в Markdown для Todoist
+      const markdownLink = `[${linkText}](${entity.url})`;
+      
+      // Заменяем текст на форматированную ссылку
+      formattedText = 
+        formattedText.substring(0, entity.offset) + 
+        markdownLink + 
+        formattedText.substring(entity.offset + entity.length);
     }
   });
   
-  return formattedLinks;
+  // После обработки форматированных ссылок, обрабатываем обычные URL
+  // Регулярное выражение для поиска URL
+  const urlRegex = /(https?:\/\/|www\.)[^\s]+(\.[^\s]+)+/gi;
+  
+  // Находим все URL в тексте
+  const urls = formattedText.match(urlRegex) || [];
+  
+  // Заменяем каждый URL на его Markdown-версию
+  urls.forEach(url => {
+    // Проверяем, не является ли URL уже частью Markdown-ссылки
+    const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    let isInMarkdownLink = false;
+    
+    let match;
+    while ((match = markdownLinkRegex.exec(formattedText)) !== null) {
+      if (match[2] === url || match[0].includes(url)) {
+        isInMarkdownLink = true;
+        break;
+      }
+    }
+    
+    // Если URL не является частью Markdown-ссылки, форматируем его
+    if (!isInMarkdownLink) {
+      // Если URL начинается с www., добавляем https://
+      const fullUrl = url.startsWith('www.') ? `https://${url}` : url;
+      
+      // Заменяем URL на его Markdown-версию
+      formattedText = formattedText.replace(url, `[${url}](${fullUrl})`);
+    }
+  });
+  
+  return formattedText;
 }
 
 // Функция для получения ссылки на медиафайл
@@ -220,45 +272,6 @@ async function sendTaskToTodoist(chatId) {
         }
     }
     
-    // Добавляем ссылки из текста в описание задачи, если они не были уже включены в текст
-    if ((buffer.urls && buffer.urls.length > 0) || (buffer.formattedLinks && buffer.formattedLinks.length > 0)) {
-        // Удаляем дубликаты URL
-        const uniqueUrls = buffer.urls ? [...new Set(buffer.urls)] : [];
-        
-        // Проверяем, есть ли уже раздел с медиа
-        const hasMediaSection = description && description.includes('\n\nМедиа:\n');
-        
-        // Формируем ссылки
-        let linksList = [];
-        
-        // Добавляем обычные URL
-        uniqueUrls.forEach(url => {
-            // Если URL начинается с www., добавляем https://
-            const fullUrl = url.startsWith('www.') ? `https://${url}` : url;
-            linksList.push(`[${url}](${fullUrl})`);
-        });
-        
-        // Добавляем форматированные ссылки
-        if (buffer.formattedLinks && buffer.formattedLinks.length > 0) {
-            buffer.formattedLinks.forEach(link => {
-                linksList.push(`[${link.text}](${link.url})`);
-            });
-        }
-        
-        // Если есть раздел с медиа, добавляем ссылки туда, иначе создаем новый раздел
-        if (hasMediaSection) {
-            // Добавляем ссылки в существующий раздел с медиа
-            description += '\n' + linksList.join('\n');
-        } else {
-            // Создаем новый раздел для ссылок
-            if (description) {
-                description += '\n\nСсылки:\n' + linksList.join('\n');
-            } else {
-                description = 'Ссылки:\n' + linksList.join('\n');
-            }
-        }
-    }
-    
     const sender = title.split(': ')[0];
     let projectName = findProjectNameForUser(sender);
 
@@ -331,26 +344,18 @@ async function handleMessage(msg) {
 
     let messageContent;
     let mediaInfo = null;
-    let urls = [];
-    let formattedLinks = [];
 
     // Проверяем, содержит ли сообщение текст
     if (msg.text) {
-      messageContent = msg.text;
-      // Извлекаем URL из текста
-      urls = extractUrls(msg.text);
-      // Извлекаем форматированные ссылки из текста
-      formattedLinks = extractFormattedLinks(msg.text, msg.entities);
+      // Форматируем текст с учетом ссылок
+      messageContent = formatTextWithLinks(msg.text, msg.entities);
     } else {
       // Если нет текста, проверяем наличие медиа и получаем ссылку
       mediaInfo = await getMediaLink(msg);
       
-      // Если есть подпись к медиа, используем её как текст и проверяем на наличие URL
+      // Если есть подпись к медиа, используем её как текст и форматируем ссылки
       if (msg.caption) {
-        messageContent = msg.caption;
-        urls = extractUrls(msg.caption);
-        // Извлекаем форматированные ссылки из подписи
-        formattedLinks = extractFormattedLinks(msg.caption, msg.caption_entities);
+        messageContent = formatTextWithLinks(msg.caption, msg.caption_entities);
       } else {
         // Если нет подписи, используем тип медиа как текст
         messageContent = mediaInfo ? `[${mediaInfo.type}]` : '[неизвестный тип медиа]';
@@ -363,8 +368,6 @@ async function handleMessage(msg) {
         messageBuffer.set(chatId, {
             messages: [messageWithSender],
             media: mediaInfo ? [mediaInfo] : [],
-            urls: urls.length > 0 ? urls : [],
-            formattedLinks: formattedLinks.length > 0 ? formattedLinks : [],
             timer: setTimeout(() => sendTaskToTodoist(chatId), timer*1000)
         });
     } else {
@@ -377,20 +380,6 @@ async function handleMessage(msg) {
             buffer.media = [];
           }
           buffer.media.push(mediaInfo);
-        }
-        
-        if (urls.length > 0) {
-          if (!buffer.urls) {
-            buffer.urls = [];
-          }
-          buffer.urls.push(...urls);
-        }
-        
-        if (formattedLinks.length > 0) {
-          if (!buffer.formattedLinks) {
-            buffer.formattedLinks = [];
-          }
-          buffer.formattedLinks.push(...formattedLinks);
         }
         
         buffer.timer = setTimeout(() => sendTaskToTodoist(chatId), timer*1000);
@@ -418,8 +407,12 @@ bot.on('mediagroup', async (mediaGroup) => {
         senderName = senderMsg.from.username ? `@${senderMsg.from.username}` : `${senderMsg.from.first_name} ${senderMsg.from.last_name || ''}`.trim();
     }
     
-    // Используем первое сообщение как заголовок
-    const firstCaption = senderMsg.caption || '[медиа группа]';
+    // Используем первое сообщение как заголовок, форматируем ссылки в подписи
+    let firstCaption = senderMsg.caption || '[медиа группа]';
+    if (senderMsg.caption && senderMsg.caption_entities) {
+      firstCaption = formatTextWithLinks(senderMsg.caption, senderMsg.caption_entities);
+    }
+    
     const messageWithSender = `${senderName}: ${firstCaption}`;
     
     // Собираем все медиа из группы
@@ -427,55 +420,34 @@ bot.on('mediagroup', async (mediaGroup) => {
     const mediaResults = await Promise.all(mediaPromises);
     const mediaInfos = mediaResults.filter(Boolean);
     
-    // Извлекаем URL и форматированные ссылки из подписей к медиа
-    let urls = [];
-    let formattedLinks = [];
-    mediaGroup.forEach(msg => {
+    // Обрабатываем подписи к остальным медиа в группе
+    const captionMessages = [];
+    mediaGroup.slice(1).forEach(msg => {
       if (msg.caption) {
-        const extractedUrls = extractUrls(msg.caption);
-        if (extractedUrls.length > 0) {
-          urls.push(...extractedUrls);
+        let formattedCaption = msg.caption;
+        if (msg.caption_entities) {
+          formattedCaption = formatTextWithLinks(msg.caption, msg.caption_entities);
         }
-        
-        // Извлекаем форматированные ссылки из подписей
-        const extractedFormattedLinks = extractFormattedLinks(msg.caption, msg.caption_entities);
-        if (extractedFormattedLinks.length > 0) {
-          formattedLinks.push(...extractedFormattedLinks);
-        }
+        captionMessages.push(`${senderName}: ${formattedCaption}`);
       }
     });
     
     if (!messageBuffer.has(chatId)) {
         messageBuffer.set(chatId, {
-            messages: [messageWithSender],
+            messages: [messageWithSender, ...captionMessages],
             media: mediaInfos,
-            urls: urls.length > 0 ? urls : [],
-            formattedLinks: formattedLinks.length > 0 ? formattedLinks : [],
             timer: setTimeout(() => sendTaskToTodoist(chatId), timer*1000)
         });
     } else {
         const buffer = messageBuffer.get(chatId);
         clearTimeout(buffer.timer);
         buffer.messages.push(messageWithSender);
+        buffer.messages.push(...captionMessages);
         
         if (!buffer.media) {
             buffer.media = [];
         }
         buffer.media.push(...mediaInfos);
-        
-        if (urls.length > 0) {
-          if (!buffer.urls) {
-            buffer.urls = [];
-          }
-          buffer.urls.push(...urls);
-        }
-        
-        if (formattedLinks.length > 0) {
-          if (!buffer.formattedLinks) {
-            buffer.formattedLinks = [];
-          }
-          buffer.formattedLinks.push(...formattedLinks);
-        }
         
         buffer.timer = setTimeout(() => sendTaskToTodoist(chatId), timer*1000);
     }
