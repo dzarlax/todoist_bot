@@ -32,6 +32,7 @@ The Todoist Telegram Bot is an automated assistant designed to integrate your To
 ## Key Features
 
 - **Automatic task addition**: The bot accepts text messages and forwards them as new tasks to your Todoist. This can be either direct text messages to the bot or messages forwarded from other users. Messages sent within a specified timer interval are concatenated into a single task.
+- **Media support**: The bot can handle various types of media (photos, videos, documents, audio, voice messages, stickers, locations, etc.) and include links to these media files in the task description.
 - **Message forwarding**: You can forward messages from other users or from other chats to the bot, and it will automatically add these messages as tasks to your Todoist.
 - **Project identification by user name**: Based on the preliminary setup, the bot associates Telegram users with projects in Todoist, automatically placing tasks in the appropriate projects.
 - **Optional due date addition**: You can configure the bot so that each added task automatically receives a due date — the current date.
@@ -104,6 +105,7 @@ Todoist Telegram Bot — это автоматизированный помощ�
 ## Основные функции
 
 - **Автоматическое добавление задач**: Бот принимает текстовые сообщения и добавляет их как новые задачи в ваш Todoist. Это может быть как написание текста напрямую боту, так и пересылка сообщений от других пользователей. Сообщения, отправленные в пределах установленного времени таймера, будут склеены в одну задачу.
+- **Поддержка медиафайлов**: Бот может обрабатывать различные типы медиа (фотографии, видео, документы, аудио, голосовые сообщения, стикеры, локации и т.д.) и включать ссылки на эти медиафайлы в описание задачи.
 - **Пересылка сообщений**: Вы можете пересылать сообщения от других пользователей или из других чатов боту, и он автоматически добавит эти сообщения как задачи в ваш Todoist.
 - **Определение проекта по имени пользователя**: На основе предварительной настройки бот ассоциирует пользователей Telegram с проектами в Todoist, автоматически размещая задачи в нужных проектах.
 - **Опциональное добавление даты выполнения**: Вы можете настроить бота так, чтобы каждая добавленная задача автоматически получала срок выполнения — текущую дату.
@@ -167,4 +169,3 @@ docker-compose up -d
 ```bash
 docker-compose down
 ```
-
