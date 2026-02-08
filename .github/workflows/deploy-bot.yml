@@ -25,6 +25,6 @@ jobs:
           docker stop todoist || true
           docker rm todoist || true
           docker pull dzarlax/todoist_bot
-          docker-compose up -d 
+          docker compose up -d 
 
 
