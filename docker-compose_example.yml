@@ -3,10 +3,23 @@ services:
   todoist_bot:
     image: dzarlax/todoist_bot
     container_name: todoist
+    ports:
+      - "3000:3000"
     environment:
       PROJECT_USERS_PROJECTNAME1: "@user1,@user2"
       PROJECT_USERS_PROJECTNAME2: "@user3,@user4"
-      TODOIST_TOKEN: 
-      TELEGRAM_TOKEN: 
+      TODOIST_TOKEN:
+      TELEGRAM_TOKEN:
       TIMER: 5
       AUTO_ADD_DUE_DATE: "true"
+      LOG_LEVEL: info
+      PORT: 3000
+      NODE_ENV: production
+      MAX_RETRIES: 3
+      RETRY_DELAY: 1000
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health')"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s

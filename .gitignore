@@ -1,2 +1,29 @@
+# Dependencies
 node_modules
+
+# Environment variables
+.env
+.env.local
+
+# Logs
+src/logs/*
+!src/logs/.gitkeep
+
+# Test coverage
+coverage/
+
+# Docker
 docker-compose.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude
+.claude/
