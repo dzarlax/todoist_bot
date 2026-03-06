@@ -12,6 +12,8 @@ services:
       TELEGRAM_TOKEN:
       TIMER: 5
       AUTO_ADD_DUE_DATE: "true"
+      BOT_ADMIN: "@yourusername"
+      # ALLOWED_USERNAMES: "@extrauser"
       LOG_LEVEL: info
       PORT: 3000
       NODE_ENV: production

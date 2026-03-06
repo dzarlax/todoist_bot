@@ -5,7 +5,7 @@ const logger = require('../utils/logger');
 class TodoistClient {
     constructor(token, maxRetries = 3, retryDelay = 1000) {
         this.token = token;
-        this.baseUrl = 'https://api.todoist.com/rest/v2';
+        this.baseUrl = 'https://api.todoist.com/api/v1';
         this.projectsCache = null;
         this.lastCacheUpdate = 0;
         this.cacheTTL = 1000 * 60 * 10; // 10 минут
@@ -37,8 +37,10 @@ class TodoistClient {
                     initialDelay: this.retryDelay
                 }
             );
+            const data = response.data;
+            const list = (data && data.results) ? data.results : data;
             const projects = {};
-            response.data.forEach(project => {
+            list.forEach(project => {
                 projects[project.name] = project.id;
             });
 
@@ -53,6 +55,16 @@ class TodoistClient {
             });
             return this.projectsCache || {};
         }
+    }
+
+    /**
+     * Получение активных задач
+     */
+    async getTasks(projectId = null) {
+        const params = projectId ? { project_id: projectId } : {};
+        const response = await axios.get(`${this.baseUrl}/tasks`, { headers: this.headers, params });
+        const data = response.data;
+        return (data && data.results) ? data.results : data;
     }
 
     /**

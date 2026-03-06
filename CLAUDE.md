@@ -12,22 +12,25 @@ The bot uses environment variables for configuration, parsed in `src/app/config/
 
 - `TELEGRAM_TOKEN`: Telegram bot token from BotFather (required)
 - `TODOIST_TOKEN`: Todoist API token (required)
+- `BOT_ADMIN`: Telegram username of the bot administrator (e.g. `@dzarlax`). Admin has access to management commands (`/list`).
 - `TIMER`: Seconds to wait before concatenating multiple messages into a single task (default: 5)
 - `AUTO_ADD_DUE_DATE`: Set to `"true"` to automatically set task due date to today
 - `PROJECT_USERS_*`: Mapping of projects to users. Format: `PROJECT_USERS_PROJECTNAME: "@user1,@user2"`
   - The project name (PROJECTNAME) must match the Todoist project name exactly
   - For projects with spaces or special characters, quote the value in docker-compose.yml
-  - Users can be specified as `@username` or full names
+  - Users specified as `@username` are automatically whitelisted
+  - Full names (without `@`) are supported for project mapping but not for whitelisting
+- `ALLOWED_USERNAMES`: Extra whitelisted usernames not in any project mapping (comma-separated, `@` optional)
 
 ### Architecture
 
 The bot has been refactored into a modular structure:
 
-- **Entry Point**: `src/app/todoist_bot.js` - Initializes the bot and attaches handlers.
-- **Config**: `src/app/config/index.js` - Environment variable parsing and validation.
-- **API Client**: `src/app/api/todoist.js` - `TodoistClient` class with built-in project caching.
-- **Handlers**: `src/app/handlers/telegram.js` - Logic for processing messages and media groups.
-- **Utils**: `src/app/utils/formatter.js` - Markdown formatting and user-to-project mapping logic.
+- **Entry Point**: `src/app/todoist_bot.js` - Initializes the bot, attaches handlers, defines commands including admin-only `/list`.
+- **Config**: `src/app/config/index.js` - Environment variable parsing, validation, and auto-whitelist derivation.
+- **API Client**: `src/app/api/todoist.js` - `TodoistClient` class with project caching and `getTasks()`.
+- **Handlers**: `src/app/handlers/telegram.js` - Message/media processing with whitelist check, priority and label parsing.
+- **Utils**: `src/app/utils/formatter.js` - Markdown formatting, user-to-project mapping, and `parseTaskMeta`.
 
 ### Message Processing Flow
 
@@ -37,21 +40,34 @@ The bot has been refactored into a modular structure:
    - Text messages: Processes URLs and hyperlinks into Markdown format
    - Media messages: Converts media files to Markdown links `[type](url)` embedded in content
    - Captions are processed with same URL formatting as text
-4. **Message Buffering**: Messages stored in Map with timer. First message becomes task title, rest become description
-5. **Task Creation**: On timer expiry, creates task in Todoist with mapped project
+4. **Task Meta Parsing**: Priority (`!p1`–`!p4`) and labels (`#tag`) extracted from first message; markers stripped from title
+5. **Message Buffering**: Messages stored in Map with timer, priority, and labels. First message becomes task title, rest become description
+6. **Task Creation**: On timer expiry, creates task in Todoist with mapped project, priority, and labels
 
 ### Key Logic Details
 
+**Access Control** (`src/app/handlers/telegram.js`, `src/app/todoist_bot.js`):
+- Whitelist auto-derived from `@username` entries in `PROJECT_USERS_*` + optional `ALLOWED_USERNAMES`
+- Empty whitelist = allow all users
+- `BOT_ADMIN` username gets access to management commands (`/list`, future: `/done`, `/del`)
+- `isAdmin(msg)` helper defined in `todoist_bot.js`
+
 **Message Buffering** (`src/app/handlers/telegram.js`):
-- Messages are buffered per chat ID
+- Messages are buffered per chat ID with `{ messages, priority, labels, timer }`
 - Timer resets on each new message within `TIMER` seconds
-- First message in buffer becomes task content (title)
+- First message in buffer becomes task content (title); priority/labels parsed from it
 - Subsequent messages joined with newlines as task description
 
-**Project Caching** (`src/app/api/todoist.js`):
-- Caches Todoist project list for 10 minutes to reduce API calls
-- Cache key: `projects_cache`
-- Reduces latency and avoids rate limits
+**Task Meta Parsing** (`src/app/utils/formatter.js:parseTaskMeta`):
+- `!p1`–`!p4` → sets task priority (default: 1)
+- `#word` → adds label (multiple supported); does not match `#` inside URLs
+- Returns `{ priority, labels, cleanText }` with markers stripped
+
+**Todoist API** (`src/app/api/todoist.js`):
+- Base URL: `https://api.todoist.com/api/v1` (REST API v1)
+- Response format: `{ results: [...] }` — always unwrap before use
+- Project list cached for 10 minutes to reduce API calls
+- `getTasks(projectId?)` — fetches active tasks, optionally filtered by project
 
 **Media Handling** (`src/app/handlers/telegram.js:getMediaLink`):
 - Supports 10+ media types: photos, videos, documents, audio, voice, animations, stickers, locations, contacts, polls, venues
@@ -103,7 +119,7 @@ docker-compose up -d --build
 ## Key Implementation Details
 
 - **Edited messages** are ignored (logged but not processed)
-- **Commands** (messages starting with `/`) are handled separately: `/start`, `/help`, `/status`
+- **Commands** (messages starting with `/`) are handled separately: `/start`, `/help`, `/status`, `/list` (admin only)
 - **Media groups** (albums) are processed together via `bot.on('mediagroup', ...)`
 - **Project fallback**: If no project found for user, defaults to "Inbox" and notifies user
 - **Error handling**: All async functions use try-catch; bot continues running after individual message errors

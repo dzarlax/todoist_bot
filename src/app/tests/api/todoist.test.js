@@ -13,7 +13,7 @@ describe('TodoistClient', () => {
 
   test('should initialize with correct config', () => {
     expect(todoistClient.token).toBe('test-token');
-    expect(todoistClient.baseUrl).toBe('https://api.todoist.com/rest/v2');
+    expect(todoistClient.baseUrl).toBe('https://api.todoist.com/api/v1');
     expect(todoistClient.maxRetries).toBe(3);
     expect(todoistClient.retryDelay).toBe(1000);
     expect(todoistClient.cacheTTL).toBe(1000 * 60 * 10);
@@ -32,21 +32,21 @@ describe('TodoistClient', () => {
       { id: '1', name: 'Work' },
       { id: '2', name: 'Personal' }
     ];
-    axios.get.mockResolvedValue({ data: mockProjects });
+    axios.get.mockResolvedValue({ data: { results: mockProjects } });
 
     const result = await todoistClient.fetchProjects();
 
     expect(result).toEqual({ Work: '1', Personal: '2' });
     expect(axios.get).toHaveBeenCalledTimes(1);
     expect(axios.get).toHaveBeenCalledWith(
-      'https://api.todoist.com/rest/v2/projects',
+      'https://api.todoist.com/api/v1/projects',
       { headers: todoistClient.headers }
     );
   });
 
   test('should use cache on repeated calls within TTL', async () => {
     const mockProjects = [{ id: '1', name: 'Work' }];
-    axios.get.mockResolvedValue({ data: mockProjects });
+    axios.get.mockResolvedValue({ data: { results: mockProjects } });
 
     await todoistClient.fetchProjects();
     const result = await todoistClient.fetchProjects();
@@ -61,8 +61,8 @@ describe('TodoistClient', () => {
     const mockProjects1 = [{ id: '1', name: 'Work' }];
     const mockProjects2 = [{ id: '2', name: 'Personal' }];
     axios.get
-      .mockResolvedValueOnce({ data: mockProjects1 })
-      .mockResolvedValueOnce({ data: mockProjects2 });
+      .mockResolvedValueOnce({ data: { results: mockProjects1 } })
+      .mockResolvedValueOnce({ data: { results: mockProjects2 } });
 
     const result1 = await todoistClient.fetchProjects();
     expect(result1).toEqual({ Work: '1' });
@@ -80,7 +80,7 @@ describe('TodoistClient', () => {
   test('should return cached projects on API error', async () => {
     const mockProjects = [{ id: '1', name: 'Work' }];
     axios.get
-      .mockResolvedValueOnce({ data: mockProjects })
+      .mockResolvedValueOnce({ data: { results: mockProjects } })
       .mockRejectedValueOnce(new Error('Network error'));
 
     const result1 = await todoistClient.fetchProjects();
@@ -116,7 +116,7 @@ describe('TodoistClient', () => {
 
     expect(result).toEqual(mockTask);
     expect(axios.post).toHaveBeenCalledWith(
-      'https://api.todoist.com/rest/v2/tasks',
+      'https://api.todoist.com/api/v1/tasks',
       taskData,
       { headers: todoistClient.headers }
     );

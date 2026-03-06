@@ -53,7 +53,37 @@ function formatTextWithLinks(text, entities) {
     });
 }
 
+/**
+ * Извлекает приоритет (!p1-!p4) и ярлыки (#tag) из текста задачи.
+ * Возвращает очищенный текст без маркеров.
+ */
+function parseTaskMeta(text) {
+    if (!text) return { priority: 1, labels: [], cleanText: text };
+
+    let priority = 1;
+    const priorityMatch = text.match(/(?:^|\s)!p([1-4])(?=\s|$)/i);
+    if (priorityMatch) {
+        priority = parseInt(priorityMatch[1], 10);
+    }
+
+    const labels = [];
+    const labelRegex = /(?:^|\s)#(\w+)/g;
+    let match;
+    while ((match = labelRegex.exec(text)) !== null) {
+        labels.push(match[1]);
+    }
+
+    const cleanText = text
+        .replace(/(^|\s)!p[1-4](?=\s|$)/gi, '$1')
+        .replace(/(^|\s)#\w+/g, '$1')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    return { priority, labels, cleanText };
+}
+
 module.exports = {
     findProjectNameForUser,
-    formatTextWithLinks
+    formatTextWithLinks,
+    parseTaskMeta
 };

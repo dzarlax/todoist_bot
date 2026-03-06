@@ -1,4 +1,4 @@
-const { formatTextWithLinks, findProjectNameForUser } = require('../utils/formatter');
+const { formatTextWithLinks, findProjectNameForUser, parseTaskMeta } = require('../utils/formatter');
 const { retryAsync } = require('../utils/retry');
 const logger = require('../utils/logger');
 
@@ -130,9 +130,17 @@ async function sendTaskToTodoist(chatId, bot, messageBuffer, todoistClient, conf
         if (config.autoAddDueDate) {
             taskData.due_date = new Date().toISOString().split('T')[0];
         }
+        if (buffer.priority && buffer.priority > 1) {
+            taskData.priority = buffer.priority;
+        }
+        if (buffer.labels && buffer.labels.length > 0) {
+            taskData.labels = buffer.labels;
+        }
 
         await todoistClient.createTask(taskData);
-        bot.sendMessage(chatId, `✅ Задача добавлена в "${projectName}"${config.autoAddDueDate ? ' (срок на сегодня)' : ''}.`);
+        const priorityStr = buffer.priority > 1 ? ` [p${buffer.priority}]` : '';
+        const labelsStr = buffer.labels?.length ? ` [${buffer.labels.join(', ')}]` : '';
+        bot.sendMessage(chatId, `✅ Задача добавлена в "${projectName}"${priorityStr}${labelsStr}${config.autoAddDueDate ? ' (срок на сегодня)' : ''}.`);
     } catch (error) {
         logger.error('Ошибка при добавлении задачи', {
             chatId,
@@ -149,6 +157,7 @@ async function sendTaskToTodoist(chatId, bot, messageBuffer, todoistClient, conf
 async function handleMessage(msg, bot, messageBuffer, todoistClient, config) {
     try {
         const chatId = msg.chat.id;
+        if (config.allowedUsernames.length > 0 && !config.allowedUsernames.includes(msg.from?.username)) return;
         if (msg.media_group_id) return;
         if (msg.text && msg.text.startsWith('/')) return;
 
@@ -180,17 +189,18 @@ async function handleMessage(msg, bot, messageBuffer, todoistClient, config) {
             }
         }
 
-        const messageWithSender = `${senderName}: ${messageContent}`;
-
         if (!messageBuffer.has(chatId)) {
+            const { priority, labels, cleanText } = parseTaskMeta(messageContent);
             messageBuffer.set(chatId, {
-                messages: [messageWithSender],
+                messages: [`${senderName}: ${cleanText}`],
+                priority,
+                labels,
                 timer: setTimeout(() => sendTaskToTodoist(chatId, bot, messageBuffer, todoistClient, config), config.timer * 1000)
             });
         } else {
             const buffer = messageBuffer.get(chatId);
             clearTimeout(buffer.timer);
-            buffer.messages.push(messageWithSender);
+            buffer.messages.push(`${senderName}: ${messageContent}`);
             buffer.timer = setTimeout(() => sendTaskToTodoist(chatId, bot, messageBuffer, todoistClient, config), config.timer * 1000);
         }
     } catch (error) {
@@ -207,6 +217,7 @@ async function handleMediaGroup(mediaGroup, bot, messageBuffer, todoistClient, c
         if (!mediaGroup || mediaGroup.length === 0) return;
 
         const chatId = mediaGroup[0].chat.id;
+        if (config.allowedUsernames.length > 0 && !config.allowedUsernames.includes(mediaGroup[0].from?.username)) return;
         const senderMsg = mediaGroup[0];
 
         let senderName;
@@ -223,14 +234,20 @@ async function handleMediaGroup(mediaGroup, bot, messageBuffer, todoistClient, c
         const mediaInfos = mediaResults.filter(Boolean);
 
         const messages = [];
+        let groupPriority = 1;
+        let groupLabels = [];
 
         let firstMessageText = '';
         if (senderMsg.caption) {
             let formattedCaption = formatTextWithLinks(senderMsg.caption, senderMsg.caption_entities);
+            const { priority, labels, cleanText } = parseTaskMeta(formattedCaption);
+            groupPriority = priority;
+            groupLabels = labels;
+            let captionText = cleanText;
             if (mediaInfos.length > 0) {
-                formattedCaption += ` [${mediaInfos[0].type}](${mediaInfos[0].link})`;
+                captionText += ` [${mediaInfos[0].type}](${mediaInfos[0].link})`;
             }
-            firstMessageText = `${senderName}: ${formattedCaption}`;
+            firstMessageText = `${senderName}: ${captionText}`;
         } else {
             const mediaText = mediaInfos.length > 0 ? `[${mediaInfos[0].type}](${mediaInfos[0].link})` : '[медиа группа]';
             firstMessageText = `${senderName}: ${mediaText}`;
@@ -251,6 +268,8 @@ async function handleMediaGroup(mediaGroup, bot, messageBuffer, todoistClient, c
         if (!messageBuffer.has(chatId)) {
             messageBuffer.set(chatId, {
                 messages: messages,
+                priority: groupPriority,
+                labels: groupLabels,
                 timer: setTimeout(() => sendTaskToTodoist(chatId, bot, messageBuffer, todoistClient, config), config.timer * 1000)
             });
         } else {

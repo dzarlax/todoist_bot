@@ -8,7 +8,9 @@ const config = {
     autoAddDueDate: process.env.AUTO_ADD_DUE_DATE === 'true',
     projectUsersMapping: {},
     maxRetries: parseInt(process.env.MAX_RETRIES || '3', 10),
-    retryDelay: parseInt(process.env.RETRY_DELAY || '1000', 10)
+    retryDelay: parseInt(process.env.RETRY_DELAY || '1000', 10),
+    allowedUsernames: [],
+    botAdmin: process.env.BOT_ADMIN ? process.env.BOT_ADMIN.trim().replace(/^@/, '') : null
 };
 
 // Преобразование переменных окружения в объект проект-список пользователей
@@ -19,6 +21,19 @@ Object.keys(process.env).forEach(key => {
         config.projectUsersMapping[projectName] = users;
     }
 });
+
+// Автоматический whitelist из маппинга проектов (только @username записи)
+const mappedUsernames = Object.values(config.projectUsersMapping)
+    .flat()
+    .filter(u => u.startsWith('@'))
+    .map(u => u.slice(1));
+
+// ALLOWED_USERNAMES — дополнительные пользователи вне проектов
+const explicitUsernames = process.env.ALLOWED_USERNAMES
+    ? process.env.ALLOWED_USERNAMES.split(',').map(u => u.trim().replace(/^@/, ''))
+    : [];
+
+config.allowedUsernames = [...new Set([...mappedUsernames, ...explicitUsernames])];
 
 /**
  * Валидация конфигурации

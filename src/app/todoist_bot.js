@@ -28,18 +28,59 @@ logger.info('Todoist Bot запущен...', {
 // Запуск health check сервера
 const healthServer = createHealthCheckServer(todoistClient, bot);
 
+const isAdmin = (msg) => config.botAdmin && msg.from?.username === config.botAdmin;
+
 // Обработка команд
 bot.onText(/\/start/, (msg) => {
   bot.sendMessage(msg.chat.id, 'Привет! Я бот для добавления задач в Todoist. Просто перешли мне сообщение или напиши текст, и я создам задачу.');
 });
 
 bot.onText(/\/help/, (msg) => {
-  bot.sendMessage(msg.chat.id, 'Доступные команды:\n/start - Начать работу\n/help - Справка\n/status - Проверить статус');
+  const adminCommands = isAdmin(msg) ? '\n/list [проект] - Список активных задач' : '';
+  bot.sendMessage(msg.chat.id, `Доступные команды:\n/start - Начать работу\n/help - Справка\n/status - Проверить статус${adminCommands}`);
 });
 
 bot.onText(/\/status/, (msg) => {
   const user = msg.from.username ? `@${msg.from.username}` : `${msg.from.first_name}`;
-  bot.sendMessage(msg.chat.id, `Бот активен.\nВы вошли как: ${user}\nТаймер склейки: ${config.timer} сек.\nАвто-дата: ${config.autoAddDueDate ? 'Вкл' : 'Выкл'}`);
+  const role = isAdmin(msg) ? ' (admin)' : '';
+  bot.sendMessage(msg.chat.id, `Бот активен.\nВы вошли как: ${user}${role}\nТаймер склейки: ${config.timer} сек.\nАвто-дата: ${config.autoAddDueDate ? 'Вкл' : 'Выкл'}`);
+});
+
+bot.onText(/\/list(.*)/, async (msg, match) => {
+  if (!isAdmin(msg)) return;
+
+  const projectFilter = match[1].trim();
+  try {
+    const projects = await todoistClient.fetchProjects();
+    let projectId = null;
+
+    if (projectFilter) {
+      projectId = projects[projectFilter];
+      if (!projectId) {
+        bot.sendMessage(msg.chat.id, `Проект "${projectFilter}" не найден.`);
+        return;
+      }
+    }
+
+    const tasks = await todoistClient.getTasks(projectId);
+    if (!tasks.length) {
+      bot.sendMessage(msg.chat.id, 'Нет активных задач.');
+      return;
+    }
+
+    const projectNames = Object.fromEntries(Object.entries(projects).map(([k, v]) => [v, k]));
+    const lines = tasks.slice(0, 20).map(t => {
+      const project = projectNames[t.project_id] || '';
+      const due = t.due ? ` 📅 ${t.due.string}` : '';
+      const prio = t.priority > 1 ? ` [p${t.priority}]` : '';
+      return `• ${t.content}${prio}${due}${project ? ` — ${project}` : ''}`;
+    });
+
+    bot.sendMessage(msg.chat.id, lines.join('\n'), { parse_mode: 'Markdown' });
+  } catch (error) {
+    logger.error('Ошибка при получении задач', { error: error.message });
+    bot.sendMessage(msg.chat.id, '❌ Ошибка при получении задач.');
+  }
 });
 
 // Основной обработчик сообщений
