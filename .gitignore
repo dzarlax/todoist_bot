@@ -1,16 +1,14 @@
-# Dependencies
-node_modules
-
 # Environment variables
 .env
 .env.local
 
-# Logs
-src/logs/*
-!src/logs/.gitkeep
+# Build artifacts
+/todoist-bot
+/bin/
+/dist/
 
-# Test coverage
-coverage/
+# Logs
+*.log
 
 # Docker
 docker-compose.yml

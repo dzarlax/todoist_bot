@@ -1,27 +1,31 @@
-version: '3.8'
 services:
-  todoist_bot:
-    image: dzarlax/todoist_bot
-    container_name: todoist
+  todoist-bot:
+    image: ghcr.io/dzarlax/todoist-bot:latest
+    container_name: todoist-bot
+    restart: always
+    environment:
+      # --- required tokens ---
+      TELEGRAM_TOKEN: "your-telegram-bot-token"
+      TODOIST_TOKEN: "your-todoist-api-token"
+
+      # --- access control ---
+      BOT_ADMIN: "@dzarlax"
+      PROJECT_USERS_Family: "@user1,@user2"
+      PROJECT_USERS_Inbox: "@dzarlax"
+      # ALLOWED_USERNAMES: "@extra1,@extra2"   # optional
+
+      # --- bot behaviour ---
+      TIMER: "5"
+      AUTO_ADD_DUE_DATE: "true"
+
+      # --- MCP server ---
+      API_KEY: "change-me-in-prod"   # required to call /todoist from other services
+      PORT: "3000"
     ports:
       - "3000:3000"
-    environment:
-      PROJECT_USERS_PROJECTNAME1: "@user1,@user2"
-      PROJECT_USERS_PROJECTNAME2: "@user3,@user4"
-      TODOIST_TOKEN:
-      TELEGRAM_TOKEN:
-      TIMER: 5
-      AUTO_ADD_DUE_DATE: "true"
-      BOT_ADMIN: "@yourusername"
-      # ALLOWED_USERNAMES: "@extrauser"
-      LOG_LEVEL: info
-      PORT: 3000
-      NODE_ENV: production
-      MAX_RETRIES: 3
-      RETRY_DELAY: 1000
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health')"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/health"]
       interval: 30s
-      timeout: 3s
+      timeout: 5s
       retries: 3
-      start_period: 5s
+      start_period: 10s
