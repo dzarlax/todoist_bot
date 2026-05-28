@@ -252,6 +252,12 @@ func (s *MCPServer) moveTask(ctx context.Context, req mcp.CallToolRequest) (*mcp
 	if strParam(args, "section_id") != "" && boolParam(args, "clear_section") {
 		return mcp.NewToolResultError("section_id and clear_section cannot both be set"), nil
 	}
+	if boolParam(args, "clear_parent") && strParam(args, "project_id") == "" && strParam(args, "section_id") == "" {
+		return mcp.NewToolResultError("project_id or section_id is required with clear_parent"), nil
+	}
+	if boolParam(args, "clear_section") && strParam(args, "project_id") == "" && strParam(args, "parent_id") == "" {
+		return mcp.NewToolResultError("project_id or parent_id is required with clear_section"), nil
+	}
 
 	move := map[string]interface{}{}
 	addStringFields(move, args, "project_id", "section_id", "parent_id")
