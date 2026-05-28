@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Implementation Plan: Todoist MCP Labels and Subtasks</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f6f7f9;
+      color: #1f2937;
+      line-height: 1.5;
+    }
+    main { max-width: 1080px; margin: 0 auto; padding: 32px; }
+    section {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 16px 0;
+    }
+    h1, h2, h3 { line-height: 1.2; margin-top: 0; }
+    h1 { margin-bottom: 8px; }
+    code { background: #f3f4f6; padding: 2px 5px; border-radius: 4px; }
+    ul, ol { padding-left: 24px; }
+    li { margin: 6px 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    th, td { border: 1px solid #e5e7eb; padding: 8px 10px; text-align: left; vertical-align: top; }
+    th { background: #f9fafb; }
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #fef3c7;
+      color: #92400e;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .note { border-left: 4px solid #2563eb; }
+    .risk { border-left: 4px solid #dc2626; }
+    .approval { border-left: 4px solid #d97706; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Implementation Plan: Todoist MCP Labels and Subtasks</h1>
+  <p class="badge">Approval required before implementation</p>
+
+  <section>
+    <h2>Task Summary</h2>
+    <p>
+      Extend the Todoist MCP server in this Go service so MCP clients can create, update, and delete Todoist labels,
+      explicitly assign labels through the MCP tool schemas, and work with subtasks by listing, creating, and moving
+      tasks under or out from a parent task.
+    </p>
+  </section>
+
+  <section>
+    <h2>Current Behavior</h2>
+    <ul>
+      <li><code>internal/todoist/server.go</code> registers 7 tools: projects, labels list, tasks list, task create/update/delete/complete.</li>
+      <li><code>create_task</code> and <code>update_task</code> already copy a raw <code>labels</code> argument into the Todoist payload, but the schema does not declare that argument.</li>
+      <li><code>get_tasks</code> supports <code>project_id</code>, <code>filter</code>, and <code>limit</code>, but not <code>section_id</code>, <code>parent_id</code>, or label filtering.</li>
+      <li><code>internal/todoist/client.go</code> has raw wrappers for <code>/projects</code>, <code>/labels</code>, and <code>/tasks</code>, but no label mutation methods and no task move method.</li>
+      <li>Telegram-side task creation already supports labels parsed from <code>#tag</code> and should remain unchanged unless implementation discovers a shared helper is useful.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Desired Behavior</h2>
+    <table>
+      <thead>
+        <tr><th>Area</th><th>Proposed MCP surface</th><th>Todoist API behavior</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Label CRUD</td>
+          <td>Add <code>create_label</code>, <code>update_label</code>, <code>delete_label</code>. Keep <code>get_labels</code>.</td>
+          <td>Use <code>POST /labels</code>, <code>POST /labels/{label_id}</code>, and <code>DELETE /labels/{label_id}</code>.</td>
+        </tr>
+        <tr>
+          <td>Task labels</td>
+          <td>Declare <code>labels</code> as an array input on <code>create_task</code> and <code>update_task</code>.</td>
+          <td>Pass Todoist label names in the existing task payload field <code>labels</code>.</td>
+        </tr>
+        <tr>
+          <td>Create subtasks</td>
+          <td>Add optional <code>parent_id</code> to <code>create_task</code>; optionally allow <code>section_id</code> as adjacent placement support.</td>
+          <td>Todoist task creation supports a parent task identifier for creating a subtask.</td>
+        </tr>
+        <tr>
+          <td>List subtasks</td>
+          <td>Add <code>parent_id</code>, <code>section_id</code>, and <code>label</code> filters to <code>get_tasks</code>.</td>
+          <td>Todoist <code>GET /tasks</code> supports these query parameters.</td>
+        </tr>
+        <tr>
+          <td>Move subtasks</td>
+          <td>Add <code>move_task</code> with <code>task_id</code> required and optional <code>project_id</code>, <code>section_id</code>, <code>parent_id</code>.</td>
+          <td>Use <code>POST /tasks/{task_id}/move</code>; <code>parent_id: null</code> should be supported if MCP argument handling can represent it cleanly.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Assumptions and Unknowns</h2>
+    <ul>
+      <li>Todoist API v1 remains the target because <code>defaultBaseURL</code> is <code>https://api.todoist.com/api/v1</code> and docs in this repo already name REST API v1.</li>
+      <li>Personal labels are in scope. Shared label rename/remove endpoints are not included unless explicitly requested.</li>
+      <li>Deletion of a label removes it from tasks in Todoist. The MCP should expose that clearly but not add custom cascade logic.</li>
+      <li>For moving a task back to top level, we need to verify how <code>mcp-go</code> exposes explicit JSON <code>null</code> versus omitted fields in tool arguments.</li>
+      <li>No database access is needed; this feature is an HTTP API wrapper over Todoist.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Files Likely to Change</h2>
+    <ul>
+      <li><code>internal/todoist/client.go</code> - add raw client methods for label mutation, richer task listing, and task move.</li>
+      <li><code>internal/todoist/server.go</code> - register new MCP tools and argument handling helpers, including array and boolean parameters.</li>
+      <li><code>internal/todoist/client_test.go</code> - cover new HTTP methods, paths, query parameters, and JSON payloads.</li>
+      <li><code>internal/todoist/server_test.go</code> - likely new focused tests for MCP argument mapping and required-field validation.</li>
+      <li><code>README.md</code>, <code>Readme.md</code>, <code>AGENTS.md</code>, <code>CLAUDE.md</code> - update documented tool count and capability list after implementation.</li>
+      <li><code>docs/ai-plans/2026-05-28-todoist-mcp-labels-subtasks.html</code> - update after implementation with actual changes and checks.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Implementation Steps</h2>
+    <ol>
+      <li>Add client methods: <code>CreateLabel</code>, <code>UpdateLabel</code>, <code>DeleteLabel</code>, <code>MoveTask</code>, and an expanded task-list query builder.</li>
+      <li>Add MCP tools for label CRUD with required-field checks: <code>name</code> for create, <code>label_id</code> for update/delete, and at least one mutable field for update.</li>
+      <li>Declare <code>labels</code> in <code>create_task</code> and <code>update_task</code> schemas, and normalize arguments to <code>[]string</code> where possible before forwarding.</li>
+      <li>Add <code>parent_id</code> and <code>section_id</code> support to <code>create_task</code>; add <code>parent_id</code>, <code>section_id</code>, and <code>label</code> support to <code>get_tasks</code>.</li>
+      <li>Add <code>move_task</code> to move an existing task to another project, section, or parent. Reject empty moves where no destination field is provided.</li>
+      <li>Update documentation in English and Russian sections to list the new tools and subtask semantics.</li>
+      <li>Run formatting and verification; update this plan with the results before reporting completion.</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>API, Auth, and Deployment Impact</h2>
+    <ul>
+      <li>API contract changes: MCP clients will see additional tools and richer schemas for existing tools.</li>
+      <li>Auth does not change. All new tools stay behind the existing <code>X-API-Key</code> middleware on <code>/todoist</code>.</li>
+      <li>Deployment does not require new environment variables or migrations.</li>
+      <li>Backward compatibility should hold for existing clients because current tool names and existing arguments remain valid.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Test Plan</h2>
+    <ul>
+      <li><code>go test ./...</code> for all unit tests.</li>
+      <li><code>go vet ./...</code> for static checks.</li>
+      <li><code>go build ./...</code> to confirm the service still compiles as a deployable binary.</li>
+      <li>Unit tests should assert paths such as <code>/labels</code>, <code>/labels/{label_id}</code>, <code>/tasks?parent_id=...</code>, and <code>/tasks/{task_id}/move</code>.</li>
+      <li>Manual live Todoist API smoke test is optional and should only run if explicitly approved because it mutates real Todoist data.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Manual QA Checklist</h2>
+    <ul>
+      <li>Start the service locally with test Todoist credentials and <code>API_KEY</code>.</li>
+      <li>Call <code>get_labels</code>, then <code>create_label</code>, <code>update_label</code>, and <code>delete_label</code> against a disposable label.</li>
+      <li>Create a parent task, create a subtask with <code>parent_id</code>, list it with <code>get_tasks parent_id=...</code>, then delete the test task tree.</li>
+      <li>Move a disposable task under a parent with <code>move_task</code>, then move it back or delete it.</li>
+      <li>Confirm Telegram bot behavior for normal message-to-task creation is unchanged.</li>
+    </ul>
+  </section>
+
+  <section class="risk">
+    <h2>Risks and Edge Cases</h2>
+    <ul>
+      <li>Todoist label deletion is destructive for task label assignments. The tool should be plainly named and documented.</li>
+      <li>MCP array argument handling may deliver <code>labels</code> as <code>[]interface{}</code>, <code>[]string</code>, or another decoded shape depending on client; normalize conservatively.</li>
+      <li>Explicit <code>null</code> support for removing a parent or section may need a separate boolean such as <code>clear_parent</code> if MCP client schemas cannot distinguish omitted from null.</li>
+      <li>Todoist IDs are now string-like in v1 examples; keep all IDs as strings in Go and MCP schemas.</li>
+      <li>Existing docs currently say 7 tools; all copies must be updated together to avoid drift.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Rollback Plan</h2>
+    <p>
+      Revert the MCP/client/documentation changes as one commit or patch. Because this plan does not introduce migrations,
+      environment variables, or persisted local state, rollback is a normal code rollback plus redeploy of the previous image.
+    </p>
+  </section>
+
+  <section>
+    <h2>Open Questions</h2>
+    <ul>
+      <li>Should shared-label operations (<code>shared labels rename/remove</code>) be included now, or keep scope to personal labels?</li>
+      <li>Do you want a single generic <code>manage_label</code> tool with an <code>action</code> enum, or separate MCP tools? I recommend separate tools for clearer schemas and safer destructive operations.</li>
+      <li>Should <code>move_task</code> include explicit <code>clear_parent</code> / <code>clear_section</code> booleans if direct <code>null</code> is awkward from clients?</li>
+    </ul>
+  </section>
+
+  <section class="note">
+    <h2>Implementation Result</h2>
+    <ul>
+      <li>Added Todoist client methods for <code>create/update/delete label</code>, richer task listing, and <code>move_task</code>.</li>
+      <li>Registered 4 new MCP tools: <code>create_label</code>, <code>update_label</code>, <code>delete_label</code>, and <code>move_task</code>.</li>
+      <li>Expanded existing MCP schemas: <code>get_tasks</code> now exposes <code>section_id</code>, <code>parent_id</code>, and <code>label</code>; <code>create_task</code> exposes <code>section_id</code>, <code>parent_id</code>, and <code>labels</code>; <code>update_task</code> exposes <code>labels</code>.</li>
+      <li>Implemented <code>clear_parent</code> and <code>clear_section</code> booleans on <code>move_task</code> to send explicit JSON <code>null</code> without relying on MCP clients to pass null fields.</li>
+      <li>Updated README-style documentation to report 11 MCP tools and describe label/subtask support.</li>
+      <li>Added unit coverage for label endpoints, task structural filters, move endpoint payloads, MCP label/subtask argument mapping, and validation errors.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Verification Results</h2>
+    <ul>
+      <li><code>gofmt</code> completed for changed Go files.</li>
+      <li><code>go test ./...</code> passed.</li>
+      <li><code>go vet ./...</code> passed.</li>
+      <li><code>go build ./...</code> passed.</li>
+      <li>No live Todoist smoke test was run because it would mutate real Todoist data.</li>
+    </ul>
+  </section>
+
+  <section class="approval">
+    <h2>Approval Gate</h2>
+    <p>
+      Approved by the user with "погнал" on 2026-05-28. Implementation is complete and verified locally.
+    </p>
+  </section>
+</main>
+</body>
+</html>

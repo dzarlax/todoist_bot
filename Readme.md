@@ -49,7 +49,7 @@ Originally a Node.js bot; rewritten in Go (2026-04) with the MCP server merged i
 - **Auto-whitelist**: Users listed in `PROJECT_USERS_*` are automatically whitelisted — no duplicate config.
 - **Bot-admin role**: One user is admin via `BOT_ADMIN`. Only they can run `/list`.
 - **Optional due date**: `AUTO_ADD_DUE_DATE=true` → every new task gets today's date.
-- **Embedded MCP server**: `/todoist` endpoint with 7 tools, `X-API-Key` protected. Call it from `personal-assistant`, Claude Desktop, or any MCP client.
+- **Embedded MCP server**: `/todoist` endpoint with 11 tools, `X-API-Key` protected. Call it from `personal-assistant`, Claude Desktop, or any MCP client.
 - **Docker-ready**: Single static binary (~11 MB), alpine image, GitHub Actions builds & pushes to GHCR.
 
 ## Why Go?
@@ -135,15 +135,19 @@ All 10+ Telegram attachment types are rendered as clickable Markdown:
 
 The `/todoist` endpoint uses `mcp-go`'s Streamable HTTP transport and is protected by `X-API-Key`.
 
-**7 tools exposed:**
+**11 tools exposed:**
 
 | Tool | Purpose |
 |---|---|
 | `get_projects` | List all Todoist projects |
 | `get_labels` | List all labels |
-| `get_tasks` | List tasks (optional `project_id`, `filter`, `limit`) |
-| `create_task` | Create a task (`content` required; optional `description`, `project_id`, `due_string`/`due_date`, `priority`, `labels`) |
-| `update_task` | Update an existing task (`task_id` required) |
+| `create_label` | Create a personal label (`name` required; optional `color`, `order`, `is_favorite`) |
+| `update_label` | Update a personal label (`label_id` required) |
+| `delete_label` | Delete a personal label and remove it from tasks |
+| `get_tasks` | List tasks (optional `project_id`, `section_id`, `parent_id`, `label`, `filter`, `limit`) |
+| `create_task` | Create a task (`content` required; optional `description`, `project_id`, `section_id`, `parent_id`, `due_string`/`due_date`, `priority`, `labels`) |
+| `update_task` | Update an existing task (`task_id` required; optional `content`, `description`, `due_string`/`due_date`, `priority`, `labels`) |
+| `move_task` | Move a task to another project, section, or parent (`task_id` required) |
 | `delete_task` | Delete a task |
 | `complete_task` | Mark a task complete |
 
@@ -301,7 +305,7 @@ Go-сервис, который делает две вещи в одном пр�
 - **Автоматический вайтлист**: Пользователи из `PROJECT_USERS_*` автоматически добавляются в whitelist — без дубля конфига.
 - **Роль админа**: Один пользователь — админ через `BOT_ADMIN`. Только он может вызывать `/list`.
 - **Опциональная дата выполнения**: `AUTO_ADD_DUE_DATE=true` → каждая новая задача получает срок на сегодня.
-- **Встроенный MCP-сервер**: Эндпоинт `/todoist` с 7 инструментами, защищён `X-API-Key`. Подключается из `personal-assistant`, Claude Desktop или любого MCP-клиента.
+- **Встроенный MCP-сервер**: Эндпоинт `/todoist` с 11 инструментами, защищён `X-API-Key`. Подключается из `personal-assistant`, Claude Desktop или любого MCP-клиента.
 - **Docker-ready**: Один статический бинарник (~11 МБ), alpine-образ, GitHub Actions пушат в GHCR.
 
 ## Почему Go?
@@ -387,15 +391,19 @@ Go-сервис, который делает две вещи в одном пр�
 
 Эндпоинт `/todoist` использует Streamable HTTP транспорт из `mcp-go` и защищён `X-API-Key`.
 
-**Экспонируются 7 инструментов:**
+**Экспонируются 11 инструментов:**
 
 | Инструмент | Назначение |
 |---|---|
 | `get_projects` | Список всех проектов Todoist |
 | `get_labels` | Список всех меток |
-| `get_tasks` | Список задач (опционально `project_id`, `filter`, `limit`) |
-| `create_task` | Создать задачу (`content` обязателен; опционально `description`, `project_id`, `due_string`/`due_date`, `priority`, `labels`) |
-| `update_task` | Обновить существующую задачу (`task_id` обязателен) |
+| `create_label` | Создать персональную метку (`name` обязателен; опционально `color`, `order`, `is_favorite`) |
+| `update_label` | Обновить персональную метку (`label_id` обязателен) |
+| `delete_label` | Удалить персональную метку и снять её с задач |
+| `get_tasks` | Список задач (опционально `project_id`, `section_id`, `parent_id`, `label`, `filter`, `limit`) |
+| `create_task` | Создать задачу (`content` обязателен; опционально `description`, `project_id`, `section_id`, `parent_id`, `due_string`/`due_date`, `priority`, `labels`) |
+| `update_task` | Обновить существующую задачу (`task_id` обязателен; опционально `content`, `description`, `due_string`/`due_date`, `priority`, `labels`) |
+| `move_task` | Переместить задачу в другой проект, секцию или под родителя (`task_id` обязателен) |
 | `delete_task` | Удалить задачу |
 | `complete_task` | Завершить задачу |
 
