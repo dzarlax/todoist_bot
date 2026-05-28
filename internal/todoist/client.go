@@ -101,12 +101,53 @@ func (c *Client) GetLabels(ctx context.Context) ([]byte, error) {
 	return c.do(ctx, http.MethodGet, "/labels", nil)
 }
 
+func (c *Client) CreateLabel(ctx context.Context, label map[string]interface{}) ([]byte, error) {
+	return c.do(ctx, http.MethodPost, "/labels", label)
+}
+
+func (c *Client) UpdateLabel(ctx context.Context, labelID string, update map[string]interface{}) ([]byte, error) {
+	return c.do(ctx, http.MethodPost, "/labels/"+labelID, update)
+}
+
+func (c *Client) DeleteLabel(ctx context.Context, labelID string) error {
+	_, err := c.do(ctx, http.MethodDelete, "/labels/"+labelID, nil)
+	return err
+}
+
+type TaskListOptions struct {
+	ProjectID string
+	SectionID string
+	ParentID  string
+	Label     string
+	Limit     int
+}
+
 func (c *Client) GetTasks(ctx context.Context, projectID string, limit int) ([]byte, error) {
-	path := fmt.Sprintf("/tasks?limit=%d", limit)
-	if projectID != "" {
-		path += "&project_id=" + url.QueryEscape(projectID)
+	return c.GetTasksWithOptions(ctx, TaskListOptions{
+		ProjectID: projectID,
+		Limit:     limit,
+	})
+}
+
+func (c *Client) GetTasksWithOptions(ctx context.Context, opts TaskListOptions) ([]byte, error) {
+	if opts.Limit <= 0 {
+		opts.Limit = 20
 	}
-	return c.do(ctx, http.MethodGet, path, nil)
+	values := url.Values{}
+	values.Set("limit", fmt.Sprintf("%d", opts.Limit))
+	if opts.ProjectID != "" {
+		values.Set("project_id", opts.ProjectID)
+	}
+	if opts.SectionID != "" {
+		values.Set("section_id", opts.SectionID)
+	}
+	if opts.ParentID != "" {
+		values.Set("parent_id", opts.ParentID)
+	}
+	if opts.Label != "" {
+		values.Set("label", opts.Label)
+	}
+	return c.do(ctx, http.MethodGet, "/tasks?"+values.Encode(), nil)
 }
 
 func (c *Client) GetTasksFiltered(ctx context.Context, filter string, limit int) ([]byte, error) {
@@ -120,6 +161,10 @@ func (c *Client) CreateTask(ctx context.Context, task map[string]interface{}) ([
 
 func (c *Client) UpdateTask(ctx context.Context, taskID string, update map[string]interface{}) ([]byte, error) {
 	return c.do(ctx, http.MethodPost, "/tasks/"+taskID, update)
+}
+
+func (c *Client) MoveTask(ctx context.Context, taskID string, move map[string]interface{}) ([]byte, error) {
+	return c.do(ctx, http.MethodPost, "/tasks/"+taskID+"/move", move)
 }
 
 func (c *Client) DeleteTask(ctx context.Context, taskID string) error {
