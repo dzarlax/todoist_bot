@@ -155,6 +155,10 @@ func (c *Client) GetTasksFiltered(ctx context.Context, filter string, limit int)
 	return c.do(ctx, http.MethodGet, path, nil)
 }
 
+func (c *Client) GetTask(ctx context.Context, taskID string) ([]byte, error) {
+	return c.do(ctx, http.MethodGet, "/tasks/"+taskID, nil)
+}
+
 func (c *Client) CreateTask(ctx context.Context, task map[string]interface{}) ([]byte, error) {
 	return c.do(ctx, http.MethodPost, "/tasks", task)
 }

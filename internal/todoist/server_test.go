@@ -99,11 +99,16 @@ func TestMCPServer_UpdateTask_AllowsClearingLabels(t *testing.T) {
 	}
 }
 
-func TestMCPServer_MoveTask_ClearsParentWithinProject(t *testing.T) {
+func TestMCPServer_MoveTask_ClearsParentWithinCurrentProject(t *testing.T) {
 	var gotBody map[string]any
 	client, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/tasks/task1/move" {
-			t.Errorf("request: %s %s", r.Method, r.URL.Path)
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/tasks/task1":
+			_, _ = w.Write([]byte(`{"id":"task1","project_id":"project1"}`))
+			return
+		case r.Method == http.MethodPost && r.URL.Path == "/tasks/task1/move":
+		default:
+			t.Fatalf("request: %s %s", r.Method, r.URL.Path)
 		}
 		body, _ := io.ReadAll(r.Body)
 		if err := json.Unmarshal(body, &gotBody); err != nil {
@@ -115,7 +120,6 @@ func TestMCPServer_MoveTask_ClearsParentWithinProject(t *testing.T) {
 	srv := NewMCPServer(client)
 	result, err := srv.moveTask(context.Background(), callToolRequest(map[string]any{
 		"task_id":      "task1",
-		"project_id":   "project1",
 		"clear_parent": true,
 	}))
 	if err != nil {
@@ -144,24 +148,6 @@ func TestMCPServer_MoveTask_RejectsConflictingParentArgs(t *testing.T) {
 	result, err := srv.moveTask(context.Background(), callToolRequest(map[string]any{
 		"task_id":      "task1",
 		"parent_id":    "parent1",
-		"clear_parent": true,
-	}))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !result.IsError {
-		t.Fatalf("expected tool error, got %+v", result)
-	}
-}
-
-func TestMCPServer_MoveTask_RejectsClearParentWithoutDestination(t *testing.T) {
-	client, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		t.Fatal("unexpected HTTP request")
-	})
-	srv := NewMCPServer(client)
-
-	result, err := srv.moveTask(context.Background(), callToolRequest(map[string]any{
-		"task_id":      "task1",
 		"clear_parent": true,
 	}))
 	if err != nil {
