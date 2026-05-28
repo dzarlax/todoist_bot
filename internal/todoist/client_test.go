@@ -85,6 +85,18 @@ func TestClient_GetTasksWithOptions_IncludesStructuralFilters(t *testing.T) {
 	}
 }
 
+func TestClient_GetTask_UsesTaskIDPath(t *testing.T) {
+	c, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/tasks/task1" {
+			t.Errorf("request: %s %s", r.Method, r.URL.Path)
+		}
+		_, _ = w.Write([]byte(`{"id":"task1","project_id":"project1"}`))
+	})
+	if _, err := c.GetTask(context.Background(), "task1"); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestClient_CreateTask_SendsJSON(t *testing.T) {
 	var gotBody string
 	c, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {

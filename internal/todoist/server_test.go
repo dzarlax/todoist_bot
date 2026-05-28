@@ -99,11 +99,16 @@ func TestMCPServer_UpdateTask_AllowsClearingLabels(t *testing.T) {
 	}
 }
 
-func TestMCPServer_MoveTask_ClearsParent(t *testing.T) {
+func TestMCPServer_MoveTask_ClearsParentWithinCurrentProject(t *testing.T) {
 	var gotBody map[string]any
 	client, _ := newTestClient(t, func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || r.URL.Path != "/tasks/task1/move" {
-			t.Errorf("request: %s %s", r.Method, r.URL.Path)
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/tasks/task1":
+			_, _ = w.Write([]byte(`{"id":"task1","project_id":"project1"}`))
+			return
+		case r.Method == http.MethodPost && r.URL.Path == "/tasks/task1/move":
+		default:
+			t.Fatalf("request: %s %s", r.Method, r.URL.Path)
 		}
 		body, _ := io.ReadAll(r.Body)
 		if err := json.Unmarshal(body, &gotBody); err != nil {
@@ -128,6 +133,9 @@ func TestMCPServer_MoveTask_ClearsParent(t *testing.T) {
 	}
 	if gotBody["parent_id"] != nil {
 		t.Errorf("parent_id: got %v, want nil", gotBody["parent_id"])
+	}
+	if gotBody["project_id"] != "project1" {
+		t.Errorf("project_id: got %v, want project1", gotBody["project_id"])
 	}
 }
 

@@ -261,6 +261,11 @@ func (s *MCPServer) moveTask(ctx context.Context, req mcp.CallToolRequest) (*mcp
 	if boolParam(args, "clear_section") {
 		move["section_id"] = nil
 	}
+	if boolParam(args, "clear_parent") || boolParam(args, "clear_section") {
+		if err := s.addCurrentTaskProjectIfNeeded(ctx, taskID, move); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+	}
 	if len(move) == 0 {
 		return mcp.NewToolResultError("at least one destination field is required"), nil
 	}
@@ -270,6 +275,34 @@ func (s *MCPServer) moveTask(ctx context.Context, req mcp.CallToolRequest) (*mcp
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 	return mcp.NewToolResultText(formatJSON(data)), nil
+}
+
+func (s *MCPServer) addCurrentTaskProjectIfNeeded(ctx context.Context, taskID string, move map[string]interface{}) error {
+	if _, hasProject := move["project_id"]; hasProject {
+		return nil
+	}
+	if _, hasSection := move["section_id"]; hasSection {
+		return nil
+	}
+	if _, hasParent := move["parent_id"]; hasParent && move["parent_id"] != nil {
+		return nil
+	}
+
+	data, err := s.client.GetTask(ctx, taskID)
+	if err != nil {
+		return err
+	}
+	var task struct {
+		ProjectID string `json:"project_id"`
+	}
+	if err := json.Unmarshal(data, &task); err != nil {
+		return err
+	}
+	if task.ProjectID == "" {
+		return fmt.Errorf("project_id is required with clear_parent or clear_section")
+	}
+	move["project_id"] = task.ProjectID
+	return nil
 }
 
 func (s *MCPServer) deleteTask(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
